@@ -1,7 +1,7 @@
-# Find My · Self-Hosted Web UI (per SERVEROS)
+# Find My · Self-Hosted Web UI (per SERVER)
 
 Mappa self-hosted per i tuoi beacon Find My DIY, con **storico delle posizioni**.
-Pensata per **SERVEROS** (Docker). Tutto il lavoro pesante è **lato server**, quindi è
+Pensata per **SERVER** (Docker). Tutto il lavoro pesante è **lato server**, quindi è
 robusta e si usa da qualsiasi dispositivo.
 
 - **Config via variabile d'ambiente** (`ENDPOINT_URL`) → uguale ovunque, persiste ai riavvii.
@@ -16,7 +16,7 @@ robusta e si usa da qualsiasi dispositivo.
 ## Architettura
 
 ```
-Mappa (browser)  →  findmy-web (questo)            →  endpoint macless-haystack  →  Apple
+Mappa (browser)  →  Frontend-Self-hosted (questo)            →  endpoint macless-haystack  →  Apple
                     config + tag + storico + decifra   (auth Apple ID, :6176)
 ```
 
@@ -31,7 +31,7 @@ Mappa (browser)  →  findmy-web (questo)            →  endpoint macless-hayst
 docker compose up -d --build
 ```
 
-4. Apri **`http://IP-DI-SERVER:8123`**.
+4. Apri **`http://IP-SERVER:8123`**.
 
 ## Come si usa
 
@@ -78,11 +78,3 @@ l'import è tollerante e prova ad accettare anche altri formati JSON.
 
 Dato dal sito https://dchristl.github.io/macless-haystack/ (oppure usa «Genera chiave» nella UI):
 
-```python
-import base64
-k = base64.b64decode("INCOLLA_QUI_LA_ADVERTISEMENT_KEY")
-assert len(k) == 28, f"Errore: {len(k)} byte invece di 28 (forse hai copiato la chiave sbagliata)"
-print("static uint8_t findmy_public_key[28] = {")
-print("    " + ",\n    ".join(", ".join(f"0x{b:02x}" for b in k[i:i+8]) for i in range(0,28,8)))
-print("};")
-```
