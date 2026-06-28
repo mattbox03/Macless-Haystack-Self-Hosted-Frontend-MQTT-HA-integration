@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Find My · Self-Hosted</title>
+<link rel="stylesheet" href="leaflet.css">
+<style>
+  :root{
+    --bg:#0d1017; --panel:rgba(20,24,33,.92); --line:#2a2f3d; --txt:#eef0f6;
+    --muted:#9aa0b0; --accent:#5b8cff; --ok:#2fbf71; --bad:#e0556b;
+    --mono:ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--txt);background:var(--bg)}
+  #map{position:fixed;inset:0;z-index:0;background:#0d1017}
+  .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#1b1f2b;color:var(--txt)}
+  header{position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;align-items:center;gap:10px;
+    padding:12px 16px;background:linear-gradient(#0d1017ee,#0d101700);pointer-events:none}
+  header h1{font-size:16px;margin:0;font-weight:700;flex:1;pointer-events:auto}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+  .dot.on{background:var(--ok)} .dot.off{background:var(--bad)}
+  header .btns{pointer-events:auto;display:flex;gap:8px}
+  button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer}
+  button.ghost{background:#222838;color:var(--txt);border:1px solid var(--line)}
+  button.sm{padding:7px 10px;font-size:12px}
+  button:active{transform:translateY(1px)}
+  #panel{position:fixed;z-index:1000;left:14px;bottom:14px;width:330px;max-width:calc(100vw - 28px);
+    max-height:60vh;overflow:auto;background:var(--panel);backdrop-filter:blur(10px);
+    border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 10px 40px #0008}
+  #panel h2{margin:0 0 8px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .tag{display:flex;align-items:center;gap:9px;padding:9px;border:1px solid var(--line);border-radius:11px;margin-bottom:8px;cursor:pointer}
+  .tag:hover{border-color:var(--accent)}
+  .swatch{width:11px;height:11px;border-radius:50%;flex:0 0 auto}
+  .tag .nm{font-weight:600;font-size:14px}
+  .tag .meta{font-size:11px;color:var(--muted)}
+  .tag .grow{flex:1;min-width:0}
+  .tag .chev{color:var(--muted);font-size:13px}
+  input{width:100%;padding:9px 11px;background:#171b25;border:1px solid var(--line);border-radius:10px;color:var(--txt);font-size:13px;margin-top:6px}
+  input.mono{font-family:var(--mono);font-size:12px}
+  .chk{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;cursor:pointer}
+  .chk input{width:auto;margin:0}
+  .muted{color:var(--muted);font-size:12px}
+  details summary{cursor:pointer;color:var(--muted);font-size:12px;margin-top:10px}
+  pre{background:#171b25;border:1px solid var(--line);border-radius:10px;padding:10px;overflow:auto;font-size:11px;font-family:var(--mono)}
+  .toast{position:fixed;z-index:2000;bottom:14px;left:50%;transform:translateX(-50%);background:#222838;border:1px solid var(--line);
+    padding:9px 14px;border-radius:999px;font-size:13px;opacity:0;transition:.3s;pointer-events:none}
+  .toast.show{opacity:1}
+  .modal[hidden]{display:none}
+  .modal{position:fixed;inset:0;z-index:3000;background:#0009;display:flex;align-items:center;justify-content:center;padding:16px}
+  .sheet{background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:16px;padding:16px;width:380px;max-width:100%;max-height:80vh;display:flex;flex-direction:column}
+  .sheet h3{margin:0 0 10px;font-size:15px}
+  .mlist{overflow:auto;flex:1;margin-bottom:12px;min-height:40px}
+  .mlist label{display:flex;align-items:center;gap:10px;padding:9px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;cursor:pointer;font-size:14px}
+  .mlist label input{width:auto;margin:0}
+  .mrow{display:flex;gap:8px;justify-content:flex-end}
+  /* navigatore cronologia */
+  #nav[hidden]{display:none}
+  #nav{position:fixed;z-index:1500;top:54px;left:50%;transform:translateX(-50%);width:440px;max-width:calc(100vw - 24px);
+    background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 8px 30px #0007}
+  .nrow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .nname{font-weight:700;flex:1;font-size:15px}
+  .ncount{flex:1;text-align:center;color:var(--muted);font-size:12px}
+  .ninfo{font-family:var(--mono);font-size:13px;text-align:center;margin-bottom:8px}
+  #n-slider{width:100%;background:transparent;border:0;padding:0;margin:2px 0 0;height:22px}
+  .nopts{margin-top:6px}
+  .nopts summary{font-size:11px}
+  #n-del{background:transparent;color:var(--bad);border:1px solid var(--bad);width:100%;margin-top:6px;font-size:12px;padding:8px}
+  #panel.hide{display:none}
+  @media(max-width:600px){
+    header{padding:10px 12px;gap:8px}
+    header h1{font-size:15px}
+    button{padding:10px 12px}
+    button.sm{padding:8px 9px}
+    #panel{left:8px;right:8px;bottom:8px;width:auto;max-height:58vh}
+    #nav{left:8px;right:8px;top:52px;width:auto;max-width:none;transform:none;max-height:calc(100vh - 64px);overflow:auto}
+    #nav .nrow{flex-wrap:wrap}
+    #n-actions button{flex:1}
+  }
+</style>
+</head>
+<body>
+  <div id="map"></div>
+  <header>
+    <span class="dot" id="dot"></span>
+    <h1>Find My</h1>
+    <div class="btns">
+      <button id="panel-toggle" class="ghost" title="Mostra/nascondi elenco">📋</button>
+      <button id="refresh">↻ Aggiorna</button>
+    </div>
+  </header>
+
+  <!-- navigatore cronologia (dal piu' recente al piu' vecchio) -->
+  <div id="nav" hidden>
+    <div class="nrow">
+      <span id="n-name" class="nname"></span>
+      <button class="ghost sm" id="n-rename" title="rinomina">✏</button>
+      <button class="ghost sm" id="n-close" title="chiudi">✕</button>
+    </div>
+    <div class="nrow">
+      <button class="ghost sm" id="n-old">⟵ più vecchio</button>
+      <span id="n-count" class="ncount"></span>
+      <button class="ghost sm" id="n-new">più recente ⟶</button>
+    </div>
+    <div id="n-info" class="ninfo"></div>
+    <div class="nrow" id="n-actions">
+      <button class="ghost sm" id="n-copy-coord">📋 Copia</button>
+      <button class="ghost sm" id="n-gmap">🧭 Google</button>
+      <button class="ghost sm" id="n-amap">🍎 Apple</button>
+    </div>
+    <input type="range" id="n-slider" min="0" value="0">
+    <details class="nopts">
+      <summary>🔑 Chiave pubblica (da mettere nell'ESP / nRF)</summary>
+      <pre id="n-carr"></pre>
+      <button class="ghost sm" id="n-copy" style="width:100%">Copia array C</button>
+      <p class="muted" style="margin:10px 0 2px">Base64 (ASCII standard · es. per macless-haystack)</p>
+      <pre id="n-b64"></pre>
+      <button class="ghost sm" id="n-copy-b64" style="width:100%">Copia Base64</button>
+    </details>
+    <details class="nopts">
+      <summary>⋯ opzioni</summary>
+      <button id="n-del">🗑 Elimina questo tag</button>
+    </details>
+  </div>
+
+  <div id="panel">
+    <h2 id="status">Caricamento…</h2>
+    <div id="taglist"></div>
+
+    <details>
+      <summary>+ Aggiungi un tag</summary>
+      <input id="t-name" placeholder="Nome (es. Scooter)">
+      <input id="t-priv" class="mono" placeholder="Private key (Base64)">
+      <button class="ghost sm" id="t-add" style="margin-top:8px;width:100%">Aggiungi tag</button>
+    </details>
+
+    <details>
+      <summary>🔑 Genera nuova chiave (per un nuovo ESP32)</summary>
+      <button class="ghost sm" id="gen" style="margin-top:8px;width:100%">Genera coppia P-224</button>
+      <div id="genout" hidden>
+        <p class="muted" style="margin:8px 0 2px">Private key (usala in «Aggiungi un tag»)</p>
+        <input id="g-priv" class="mono" readonly>
+        <p class="muted" style="margin:8px 0 2px">Array C (per <code>key.h</code> ESP32-S3 / nRF52)</p>
+        <pre id="g-carr"></pre>
+        <button class="ghost sm" id="g-copy" style="width:100%">Copia array C</button>
+        <p class="muted" style="margin:8px 0 2px">Base64 (ASCII standard)</p>
+        <pre id="g-b64"></pre>
+        <button class="ghost sm" id="g-copy-b64" style="width:100%">Copia Base64</button>
+      </div>
+    </details>
+
+    <details>
+      <summary>⇅ Importa / Esporta tag (JSON)</summary>
+      <button class="ghost sm" id="exp" style="margin-top:8px;width:100%">⬇ Esporta tag…</button>
+      <button class="ghost sm" id="imp" style="margin-top:8px;width:100%">⬆ Importa da file…</button>
+      <input type="file" id="impfile" accept="application/json,.json" hidden>
+      <p class="muted" style="margin-top:8px">L'export include le private key (backup): tienilo al sicuro.</p>
+    </details>
+
+    <details>
+      <summary>⚙ MQTT / Home Assistant</summary>
+      <label class="chk"><input type="checkbox" id="s-en"> Pubblica su MQTT</label>
+      <input id="s-host" placeholder="Broker host (es. 192.168.1.10)">
+      <input id="s-port" type="number" placeholder="Porta (1883)">
+      <input id="s-user" placeholder="Utente MQTT (opzionale)">
+      <input id="s-pass" type="password" placeholder="Password (opzionale)">
+      <input id="s-base" placeholder="Topic base (findmy)">
+      <p class="muted" style="margin:10px 0 2px">Aggiorna le posizioni ogni (minuti)</p>
+      <input id="s-refresh" type="number" min="1" placeholder="30">
+      <button class="ghost sm" id="s-save" style="margin-top:8px;width:100%">Salva impostazioni</button>
+      <p class="muted" style="margin-top:6px">Refresh e pubblicazione girano sul <b>server</b>, anche a sito chiuso. In Home Assistant i tag compaiono come <code>device_tracker</code> (MQTT discovery) con nome e ultima posizione sulla mappa.</p>
+    </details>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="modal" id="modal" hidden>
+    <div class="sheet">
+      <h3 id="m-title"></h3>
+      <div id="m-list" class="mlist"></div>
+      <div class="mrow">
+        <button class="ghost sm" id="m-cancel">Annulla</button>
+        <button class="sm" id="m-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+<script src="leaflet.js"></script>
+<script>
+  const COLORS = ['#5b8cff','#2fbf71','#e0a341','#e0556b','#9b59b6','#16a3b8','#e07b39'];
+  const $ = (id)=>document.getElementById(id);
+  const toast = (m)=>{ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); };
+  const setStatus = (m,cls)=>{ $('status').textContent=m; if(cls!==undefined) $('dot').className='dot '+cls; };
+  const gmapsDir = (p)=>`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`;
+  const amapsDir = (p)=>`https://maps.apple.com/?daddr=${p.lat},${p.lon}&dirflg=d`;
+  function mapsPopup(name,p,total){
+    return `<b>${name}</b><br>${new Date(p.ts).toLocaleString()}`
+      + `<br><span style="font-family:var(--mono)">${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}</span> · ±${p.acc} m`
+      + (total? `<br>${total} punti` : '')
+      + `<br>🧭 <a href="${gmapsDir(p)}" target="_blank" rel="noopener" style="color:var(--accent)">Google</a>`
+      + ` · 🍎 <a href="${amapsDir(p)}" target="_blank" rel="noopener" style="color:var(--accent)">Apple</a>`;
+  }
+
+  const map = L.map('map',{zoomControl:false}).setView([45.46,9.19],5);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+  let layers = [];
+  let TAGS = [], selId = null, idx = 0, curMarker = null, curPt = null;
+  const selTag = ()=>TAGS.find(t=>t.id===selId);
+
+  function draw(tags){
+    TAGS = tags;
+    layers.forEach(l=>map.removeLayer(l)); layers=[];
+    let all=[];
+    tags.forEach((t,i)=>{
+      const c = COLORS[i%COLORS.length];
+      const pts = (t.history||[]).map(p=>[p.lat,p.lon]);
+      if(pts.length>1){ const pl=L.polyline(pts,{color:c,weight:3,opacity:.5}).addTo(map); layers.push(pl); }
+      (t.history||[]).forEach((p,j)=>{
+        const last = j===t.history.length-1;
+        const m=L.circleMarker([p.lat,p.lon],{radius:last?8:3.5,color:c,weight:last?2:0,fillColor:c,fillOpacity:last?1:.45}).addTo(map);
+        m.bindPopup(mapsPopup(t.name, p, last? t.history.length : 0));
+        layers.push(m);
+      });
+      all=all.concat(pts);
+    });
+    if(all.length && !selId) map.fitBounds(all,{padding:[60,60],maxZoom:16});
+    renderList(tags);
+    if(selId){ const t=selTag(); if(t){ const h=t.history||[]; if(h.length) $('n-slider').max=h.length-1; updateNav(); } else closeNav(); }
+  }
+
+  function renderList(tags){
+    const box=$('taglist');
+    box.innerHTML = tags.length? '' : '<p class="muted">Nessun tag. Aggiungine uno qui sotto ⤵</p>';
+    tags.forEach((t,i)=>{
+      const c=COLORS[i%COLORS.length];
+      const h=t.history||[]; const last=h[h.length-1];
+      const el=document.createElement('div'); el.className='tag';
+      el.innerHTML=`<span class="swatch" style="background:${c}"></span>
+        <div class="grow"><div class="nm">${t.name}</div>
+        <div class="meta">${last? new Date(last.ts).toLocaleString()+' · '+h.length+' punti' : 'mai localizzato'}</div></div>
+        <span class="chev">›</span>`;
+      el.onclick=()=>selectTag(t.id);
+      box.appendChild(el);
+    });
+  }
+
+  // ---- navigatore storico ----
+  function selectTag(id){
+    selId=id; const t=selTag(); if(!t) return;
+    const h=t.history||[];
+    $('n-name').textContent=t.name; $('nav').hidden=false;
+    if(h.length){ idx=h.length-1; $('n-slider').max=h.length-1; }
+    updateNav();
+  }
+  function updateNav(){
+    const t=selTag(); if(!t){ closeNav(); return; }
+    $('n-name').textContent=t.name;
+    $('n-carr').textContent=t.carray||'(chiave non disponibile)';
+    $('n-b64').textContent=t.advertisement||'(non disponibile)';
+    const h=t.history||[]; const has=h.length>0;
+    $('n-old').disabled=$('n-new').disabled=$('n-slider').disabled=!has;
+    ['n-copy-coord','n-gmap','n-amap'].forEach(id=>$(id).disabled=!has);
+    if(curMarker){ map.removeLayer(curMarker); curMarker=null; }
+    if(!has){ curPt=null; $('n-count').textContent=''; $('n-info').textContent='Nessuna posizione ancora'; return; }
+    idx=Math.max(0,Math.min(idx,h.length-1)); const p=h[idx]; curPt=p;
+    const lbl = idx===h.length-1?' · più recente' : idx===0?' · più vecchio' : '';
+    $('n-count').textContent=`${h.length-idx} / ${h.length}${lbl}`;
+    $('n-info').textContent=`${new Date(p.ts).toLocaleString()}  ·  ${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}`;
+    $('n-slider').value=idx;
+    curMarker=L.circleMarker([p.lat,p.lon],{radius:11,color:'#fff',weight:3,fillColor:'#e0556b',fillOpacity:1}).addTo(map).bindPopup(mapsPopup(t.name,p,0));
+    map.panTo([p.lat,p.lon]);
+  }
+  function closeNav(){ $('nav').hidden=true; selId=null; if(curMarker){map.removeLayer(curMarker);curMarker=null;} }
+  $('n-old').onclick=()=>{ idx--; updateNav(); };       // piu' vecchio
+  $('n-new').onclick=()=>{ idx++; updateNav(); };       // piu' recente
+  $('n-slider').oninput=(e)=>{ idx=+e.target.value; updateNav(); };
+  $('n-close').onclick=closeNav;
+  $('n-del').onclick=async()=>{
+    const t=selTag(); if(!t) return;
+    if(!confirm(`Eliminare definitivamente "${t.name}"?\nLo storico delle posizioni andrà perso.`)) return;
+    await fetch('api/tags/'+t.id,{method:'DELETE'});
+    closeNav(); toast('Tag eliminato'); loadTags();
+  };
+  $('n-rename').onclick=async()=>{
+    const t=selTag(); if(!t) return;
+    const name=prompt('Nuovo nome del tag:', t.name); if(name===null) return;
+    const nn=name.trim(); if(!nn) return toast('Nome vuoto');
+    const r=await fetch('api/tags/'+t.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:nn})});
+    const j=await r.json(); if(j.error) return toast(j.error);
+    toast('Rinominato'); loadTags();
+  };
+  $('n-copy').onclick=async()=>{
+    const t=selTag(); if(!t) return;
+    try{ await navigator.clipboard.writeText(t.carray||''); toast('Chiave copiata'); }
+    catch(_){ toast('Copia non riuscita'); }
+  };
+  $('n-copy-b64').onclick=async()=>{
+    const t=selTag(); if(!t) return;
+    try{ await navigator.clipboard.writeText(t.advertisement||''); toast('Base64 copiato'); }
+    catch(_){ toast('Copia non riuscita'); }
+  };
+  $('n-copy-coord').onclick=async()=>{
+    if(!curPt) return;
+    try{ await navigator.clipboard.writeText(`${curPt.lat}, ${curPt.lon}`); toast('Coordinate copiate'); }
+    catch(_){ toast('Copia non riuscita'); }
+  };
+  $('n-gmap').onclick=()=>{ if(curPt) window.open(gmapsDir(curPt),'_blank','noopener'); };
+  $('n-amap').onclick=()=>{ if(curPt) window.open(amapsDir(curPt),'_blank','noopener'); };
+
+  async function loadTags(){
+    try{ const tags=await (await fetch('api/tags')).json(); draw(tags);
+      setStatus(tags.length? `${tags.length} tag · premi Aggiorna`:'Nessun tag', '');
+    }catch(e){ setStatus('Backend non raggiungibile','off'); }
+  }
+  async function refresh(){
+    setStatus('Aggiorno…','');
+    try{
+      const r=await fetch('api/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+      const j=await r.json();
+      if(j.error){ setStatus('⚠ '+j.error,'off'); return; }
+      draw(j.tags);
+      const tot=j.tags.reduce((n,t)=>n+(t.history?.length||0),0);
+      setStatus(`${j.reports} report · ${tot} posizioni`, j.reports? 'on':'');
+    }catch(e){ setStatus('Errore: '+e.message,'off'); }
+  }
+  $('refresh').onclick=refresh;
+
+  $('t-add').onclick=async()=>{
+    const name=$('t-name').value||'tag', pk=$('t-priv').value.trim();
+    if(!pk) return toast('Incolla la private key');
+    const r=await fetch('api/tags',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,privateKey:pk})});
+    const j=await r.json();
+    if(j.error) return toast(j.error);
+    $('t-name').value=''; $('t-priv').value=''; toast('Tag aggiunto'); loadTags();
+  };
+
+  $('gen').onclick=async()=>{
+    const j=await (await fetch('api/generate',{method:'POST'})).json();
+    $('g-priv').value=j.private; $('g-carr').textContent=j.carray; $('g-b64').textContent=j.advertisement; $('genout').hidden=false;
+  };
+  $('g-copy').onclick=async()=>{ await navigator.clipboard.writeText($('g-carr').textContent); toast('Array C copiato'); };
+  $('g-copy-b64').onclick=async()=>{ await navigator.clipboard.writeText($('g-b64').textContent); toast('Base64 copiato'); };
+
+  // ---- import / export ----
+  const modal=$('modal');
+  function showModal(title, items, okLabel, onOk){
+    $('m-title').textContent=title;
+    const list=$('m-list'); list.innerHTML = items.length? '' : '<p class="muted">Niente da mostrare.</p>';
+    items.forEach((it,i)=>{ const l=document.createElement('label'); l.innerHTML=`<input type="checkbox" checked data-i="${i}"><span>${it.name||'tag'}</span>`; list.appendChild(l); });
+    $('m-ok').textContent=okLabel;
+    $('m-ok').onclick=()=>{ const sel=[...list.querySelectorAll('input:checked')].map(c=>items[+c.dataset.i]); modal.hidden=true; onOk(sel); };
+    $('m-cancel').onclick=()=>{ modal.hidden=true; };
+    modal.hidden=false;
+  }
+  function download(name, obj){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(obj,null,2)],{type:'application/json'})); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+  function normalizeImport(data){
+    const arr = Array.isArray(data) ? data : (data.tags||data.accessories||[data]);
+    return arr.map(o=>{ const pk=o.privateKey||o.private||o.priv||o.key||o.id; return {name:o.name||o.label||'tag', privateKey: typeof pk==='string'? pk.trim():null}; }).filter(o=>o.privateKey);
+  }
+  $('exp').onclick=async()=>{
+    const tags=await (await fetch('api/export')).json();
+    if(!tags.length) return toast('Nessun tag da esportare');
+    showModal('Esporta tag', tags, '⬇ Scarica selezionati', (sel)=>{ if(!sel.length) return; download('findmy-tags.json',{type:'findmy-web-tags',version:1,tags:sel}); toast(`${sel.length} tag esportati`); });
+  };
+  $('imp').onclick=()=>$('impfile').click();
+  $('impfile').onchange=async(e)=>{
+    const f=e.target.files[0]; if(!f) return; e.target.value='';
+    let data; try{ data=JSON.parse(await f.text()); }catch(err){ return toast('JSON non valido'); }
+    const items=normalizeImport(data);
+    if(!items.length) return toast('Nessun tag valido nel file');
+    showModal('Importa tag', items, '⬆ Importa selezionati', async(sel)=>{
+      let ok=0;
+      for(const t of sel){ const r=await fetch('api/tags',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(t)}); try{ if((await r.json()).ok) ok++; }catch(_){} }
+      toast(`${ok}/${sel.length} importati`); loadTags();
+    });
+  };
+
+  // ---- impostazioni (MQTT / intervallo) ----
+  async function loadSettings(){
+    try{
+      const s=await (await fetch('api/settings')).json();
+      $('s-en').checked=!!s.mqtt_enabled;
+      $('s-host').value=s.mqtt_host||'';
+      $('s-port').value=s.mqtt_port||1883;
+      $('s-user').value=s.mqtt_user||'';
+      $('s-base').value=s.mqtt_base||'findmy';
+      $('s-refresh').value=s.refresh_min||30;
+      $('s-pass').placeholder = s.mqtt_pass_set ? 'Password salvata (vuoto = invariata)' : 'Password (opzionale)';
+    }catch(_){}
+  }
+  $('s-save').onclick=async()=>{
+    const body={
+      mqtt_enabled:$('s-en').checked,
+      mqtt_host:$('s-host').value.trim(),
+      mqtt_port:+$('s-port').value||1883,
+      mqtt_user:$('s-user').value.trim(),
+      mqtt_base:$('s-base').value.trim()||'findmy',
+      refresh_min:+$('s-refresh').value||30,
+    };
+    const pw=$('s-pass').value; if(pw) body.mqtt_pass=pw;
+    const r=await fetch('api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json(); if(j.error) return toast(j.error);
+    $('s-pass').value=''; toast('Impostazioni salvate'); loadSettings();
+  };
+
+  // pannello elenco nomi: mostra/nascondi (su mobile parte nascosto -> mappa libera)
+  $('panel-toggle').onclick=()=>$('panel').classList.toggle('hide');
+  if(window.innerWidth<=600) $('panel').classList.add('hide');
+
+  // boot
+  fetch('api/config').then(r=>r.json()).then(c=>{ if(!c.configured) setStatus('⚠ ENDPOINT_URL non configurato','off'); }).catch(()=>{});
+  loadSettings();
+  loadTags();
+</script>
+</body>
+</html>
