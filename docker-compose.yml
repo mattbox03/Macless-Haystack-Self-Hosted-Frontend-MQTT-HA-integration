@@ -1,0 +1,24 @@
+# Versione SENZA build (per ZimaOS): usa l'immagine ufficiale python (scaricabile
+# online) e ci MONTA dentro i file dell'app -> niente compilazione lato ZimaOS.
+services:
+  findmy-web:
+    image: python:3.12-slim
+    container_name: findmy-web
+    working_dir: /app
+    command: sh -c "pip install --no-cache-dir -r requirements.txt && python server.py"
+    ports:
+      - "8125:8000"
+    environment:
+      # >>> UNICA cosa da configurare: il tuo endpoint macless-haystack <<<
+      - ENDPOINT_URL=http://<YOUR_IP>:6176
+      - WEB_DIR=/web
+      - DATA_DIR=/data
+      # - ENDPOINT_USER=
+      # - ENDPOINT_PASS=
+      # - DAYS=7
+    volumes:
+      # i file dell'app (gia' presenti in queste cartelle) montati nel container:
+      - /findmy-web/backend:/app   # server.py + requirements.txt
+      - /findmy-web/web:/web        # index.html + leaflet.*
+      - /findmy-web/data:/data      # tag + storico (cartella TUA, visibile)
+    restart: unless-stopped
