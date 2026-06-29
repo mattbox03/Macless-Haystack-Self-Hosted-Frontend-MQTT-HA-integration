@@ -1,5 +1,5 @@
 """
-Find My · self-hosted backend.
+Macless-Haystack · self-hosted backend.
 
 - Config (endpoint macless-haystack) via variabile d'ambiente ENDPOINT_URL.
 - Tag (private key) + STORICO posizioni salvati su volume (/data) -> persistono
@@ -40,7 +40,7 @@ SETTINGS_DEFAULTS = {
     "mqtt_port":    int(os.environ.get("MQTT_PORT", "1883")),
     "mqtt_user":    os.environ.get("MQTT_USER", ""),
     "mqtt_pass":    os.environ.get("MQTT_PASS", ""),
-    "mqtt_base":    os.environ.get("MQTT_BASE", "findmy"),
+    "mqtt_base":    os.environ.get("MQTT_BASE", "Macless_Haystack"),
     "refresh_min":  max(1, REFRESH_INTERVAL // 60),     # ogni quanto aggiornare (minuti)
     "days":         DAYS_DEFAULT,
 }
