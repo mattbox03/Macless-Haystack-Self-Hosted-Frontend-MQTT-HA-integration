@@ -216,7 +216,9 @@ def tag_view(t):
     x = adv_key_bytes(base64.b64decode(t["priv"]))
     return {"id": t["id"], "name": t["name"], "history": t.get("history", []),
             "advertisement": base64.b64encode(x).decode(),
-            "carray": carray_decl(x)}
+            "carray": carray_decl(x),
+            "hidden": bool(t.get("hidden", False)),
+            "color": t.get("color")}
 
 @app.get("/api/tags")
 def api_get_tags():
@@ -253,15 +255,23 @@ def api_del_tag(tid):
     return jsonify({"ok": True})
 
 @app.patch("/api/tags/<tid>")
-def api_rename_tag(tid):
-    name = str((request.get_json(silent=True) or {}).get("name", "")).strip()
-    if not name:
-        return jsonify({"error": "nome vuoto"}), 400
+def api_update_tag(tid):
+    body = request.get_json(silent=True) or {}
     with lock:
         tags = load_tags()
         for t in tags:
             if t["id"] == tid:
-                t["name"] = name
+                if "name" in body:
+                    name = str(body["name"]).strip()
+                    if name:
+                        t["name"] = name
+                if "hidden" in body:
+                    t["hidden"] = bool(body["hidden"])
+                if "color" in body:
+                    if body["color"]:
+                        t["color"] = str(body["color"])
+                    else:
+                        t.pop("color", None)        # null/"" -> torna al colore di default
                 save_tags(tags)
                 return jsonify({"ok": True})
     return jsonify({"error": "tag non trovato"}), 404

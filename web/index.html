@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -21,11 +21,12 @@
   header h1{font-size:16px;margin:0;font-weight:700;flex:1;pointer-events:auto}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
   .dot.on{background:var(--ok)} .dot.off{background:var(--bad)}
-  header .btns{pointer-events:auto;display:flex;gap:8px}
+  header .btns{pointer-events:auto;display:flex;gap:8px;align-items:center}
   button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer}
   button.ghost{background:#222838;color:var(--txt);border:1px solid var(--line)}
   button.sm{padding:7px 10px;font-size:12px}
   button:active{transform:translateY(1px)}
+  select#lang{background:#222838;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:9px 8px;font-size:13px;font-weight:600;cursor:pointer}
   #panel{position:fixed;z-index:1000;left:14px;bottom:14px;width:330px;max-width:calc(100vw - 28px);
     max-height:60vh;overflow:auto;background:var(--panel);backdrop-filter:blur(10px);
     border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 10px 40px #0008}
@@ -37,6 +38,10 @@
   .tag .meta{font-size:11px;color:var(--muted)}
   .tag .grow{flex:1;min-width:0}
   .tag .chev{color:var(--muted);font-size:13px}
+  .tag.dim{opacity:.5}
+  .tag .eye{background:transparent;border:0;color:var(--muted);padding:2px 5px;font-size:15px;cursor:pointer;line-height:1;border-radius:8px}
+  .tag .eye:hover{background:#2a3040}
+  input[type=color]{padding:2px;height:30px;cursor:pointer}
   input{width:100%;padding:9px 11px;background:#171b25;border:1px solid var(--line);border-radius:10px;color:var(--txt);font-size:13px;margin-top:6px}
   input.mono{font-family:var(--mono);font-size:12px}
   .chk{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;cursor:pointer}
@@ -67,7 +72,17 @@
   .nopts{margin-top:6px}
   .nopts summary{font-size:11px}
   #n-del{background:transparent;color:var(--bad);border:1px solid var(--bad);width:100%;margin-top:6px;font-size:12px;padding:8px}
-  @media(max-width:560px){ #panel{left:10px;right:10px;width:auto} #nav{width:auto;left:10px;right:10px;transform:none} }
+  #panel.hide{display:none}
+  @media(max-width:600px){
+    header{padding:10px 12px;gap:8px}
+    header h1{font-size:15px}
+    button{padding:10px 12px}
+    button.sm{padding:8px 9px}
+    #panel{left:8px;right:8px;bottom:8px;width:auto;max-height:58vh}
+    #nav{left:8px;right:8px;top:52px;width:auto;max-width:none;transform:none;max-height:calc(100vh - 64px);overflow:auto}
+    #nav .nrow{flex-wrap:wrap}
+    #n-actions button{flex:1}
+  }
 </style>
 </head>
 <body>
@@ -75,88 +90,100 @@
   <header>
     <span class="dot" id="dot"></span>
     <h1>Find My</h1>
-    <div class="btns"><button id="refresh">↻ Aggiorna</button></div>
+    <div class="btns">
+      <select id="lang" title="Language">
+        <option value="en">EN</option>
+        <option value="it">IT</option>
+      </select>
+      <button id="panel-toggle" class="ghost" data-i18n-title="toggle_list" title="Show/hide list">📋</button>
+      <button id="refresh" data-i18n="refresh">↻ Refresh</button>
+    </div>
   </header>
 
   <!-- navigatore cronologia (dal piu' recente al piu' vecchio) -->
   <div id="nav" hidden>
     <div class="nrow">
       <span id="n-name" class="nname"></span>
-      <button class="ghost sm" id="n-rename" title="rinomina">✏</button>
-      <button class="ghost sm" id="n-close" title="chiudi">✕</button>
+      <button class="ghost sm" id="n-rename" data-i18n-title="rename" title="rename">✏</button>
+      <button class="ghost sm" id="n-close" data-i18n-title="close" title="close">✕</button>
     </div>
     <div class="nrow">
-      <button class="ghost sm" id="n-old">⟵ più vecchio</button>
+      <button class="ghost sm" id="n-old" data-i18n="older">⟵ older</button>
       <span id="n-count" class="ncount"></span>
-      <button class="ghost sm" id="n-new">più recente ⟶</button>
+      <button class="ghost sm" id="n-new" data-i18n="newer">newer ⟶</button>
     </div>
     <div id="n-info" class="ninfo"></div>
     <div class="nrow" id="n-actions">
-      <button class="ghost sm" id="n-copy-coord">📋 Copia</button>
+      <button class="ghost sm" id="n-copy-coord" data-i18n="copy_coord">📋 Copy</button>
       <button class="ghost sm" id="n-gmap">🧭 Google</button>
       <button class="ghost sm" id="n-amap">🍎 Apple</button>
     </div>
     <input type="range" id="n-slider" min="0" value="0">
     <details class="nopts">
-      <summary>🔑 Chiave pubblica (da mettere nell'ESP / nRF)</summary>
+      <summary data-i18n="pubkey_summary">🔑 Public key (to put in the ESP / nRF)</summary>
       <pre id="n-carr"></pre>
-      <button class="ghost sm" id="n-copy" style="width:100%">Copia array C</button>
-      <p class="muted" style="margin:10px 0 2px">Base64 (ASCII standard · es. per macless-haystack)</p>
+      <button class="ghost sm" id="n-copy" style="width:100%" data-i18n="copy_carray">Copy C array</button>
+      <p class="muted" style="margin:10px 0 2px" data-i18n="base64_label">Base64 (standard ASCII · e.g. for macless-haystack)</p>
       <pre id="n-b64"></pre>
-      <button class="ghost sm" id="n-copy-b64" style="width:100%">Copia Base64</button>
+      <button class="ghost sm" id="n-copy-b64" style="width:100%" data-i18n="copy_base64">Copy Base64</button>
     </details>
     <details class="nopts">
-      <summary>⋯ opzioni</summary>
-      <button id="n-del">🗑 Elimina questo tag</button>
+      <summary data-i18n="options">⋯ options</summary>
+      <label class="chk" style="justify-content:space-between">
+        <span data-i18n="device_color">Device color</span>
+        <input type="color" id="n-color" style="width:46px;margin:0">
+      </label>
+      <button class="ghost sm" id="n-color-reset" style="width:100%;margin-top:6px" data-i18n="reset_color">Reset to default color</button>
+      <button id="n-del" data-i18n="delete_tag">🗑 Delete this tag</button>
     </details>
   </div>
 
   <div id="panel">
-    <h2 id="status">Caricamento…</h2>
+    <h2 id="status" data-i18n="loading">Loading…</h2>
     <div id="taglist"></div>
 
     <details>
-      <summary>+ Aggiungi un tag</summary>
-      <input id="t-name" placeholder="Nome (es. Scooter)">
-      <input id="t-priv" class="mono" placeholder="Private key (Base64)">
-      <button class="ghost sm" id="t-add" style="margin-top:8px;width:100%">Aggiungi tag</button>
+      <summary data-i18n="add_tag_summary">+ Add a tag</summary>
+      <input id="t-name" data-i18n-ph="ph_name" placeholder="Name (e.g. Scooter)">
+      <input id="t-priv" class="mono" data-i18n-ph="ph_privkey" placeholder="Private key (Base64)">
+      <button class="ghost sm" id="t-add" style="margin-top:8px;width:100%" data-i18n="add_tag_btn">Add tag</button>
     </details>
 
     <details>
-      <summary>🔑 Genera nuova chiave (per un nuovo ESP32)</summary>
-      <button class="ghost sm" id="gen" style="margin-top:8px;width:100%">Genera coppia P-224</button>
+      <summary data-i18n="gen_summary">🔑 Generate a new key (for a new ESP32)</summary>
+      <button class="ghost sm" id="gen" style="margin-top:8px;width:100%" data-i18n="gen_btn">Generate P-224 pair</button>
       <div id="genout" hidden>
-        <p class="muted" style="margin:8px 0 2px">Private key (usala in «Aggiungi un tag»)</p>
+        <p class="muted" style="margin:8px 0 2px" data-i18n="gen_priv_label">Private key (use it in «Add a tag»)</p>
         <input id="g-priv" class="mono" readonly>
-        <p class="muted" style="margin:8px 0 2px">Array C (per <code>key.h</code> ESP32-S3 / nRF52)</p>
+        <p class="muted" style="margin:8px 0 2px" data-i18n="gen_carray_label">C array (for key.h ESP32-S3 / nRF52)</p>
         <pre id="g-carr"></pre>
-        <button class="ghost sm" id="g-copy" style="width:100%">Copia array C</button>
-        <p class="muted" style="margin:8px 0 2px">Base64 (ASCII standard)</p>
+        <button class="ghost sm" id="g-copy" style="width:100%" data-i18n="copy_carray">Copy C array</button>
+        <p class="muted" style="margin:8px 0 2px" data-i18n="base64_label_short">Base64 (standard ASCII)</p>
         <pre id="g-b64"></pre>
-        <button class="ghost sm" id="g-copy-b64" style="width:100%">Copia Base64</button>
+        <button class="ghost sm" id="g-copy-b64" style="width:100%" data-i18n="copy_base64">Copy Base64</button>
       </div>
     </details>
 
     <details>
-      <summary>⇅ Importa / Esporta tag (JSON)</summary>
-      <button class="ghost sm" id="exp" style="margin-top:8px;width:100%">⬇ Esporta tag…</button>
-      <button class="ghost sm" id="imp" style="margin-top:8px;width:100%">⬆ Importa da file…</button>
+      <summary data-i18n="impexp_summary">⇅ Import / Export tags (JSON)</summary>
+      <button class="ghost sm" id="exp" style="margin-top:8px;width:100%" data-i18n="export_btn">⬇ Export tags…</button>
+      <button class="ghost sm" id="imp" style="margin-top:8px;width:100%" data-i18n="import_btn">⬆ Import from file…</button>
       <input type="file" id="impfile" accept="application/json,.json" hidden>
-      <p class="muted" style="margin-top:8px">L'export include le private key (backup): tienilo al sicuro.</p>
+      <p class="muted" style="margin-top:8px" data-i18n="export_note">The export includes the private keys (backup): keep it safe.</p>
     </details>
 
     <details>
-      <summary>⚙ MQTT / Home Assistant</summary>
-      <label class="chk"><input type="checkbox" id="s-en"> Pubblica su MQTT</label>
-      <input id="s-host" placeholder="Broker host (es. 192.168.1.10)">
-      <input id="s-port" type="number" placeholder="Porta (1883)">
-      <input id="s-user" placeholder="Utente MQTT (opzionale)">
-      <input id="s-pass" type="password" placeholder="Password (opzionale)">
-      <input id="s-base" placeholder="Topic base (findmy)">
-      <p class="muted" style="margin:10px 0 2px">Aggiorna le posizioni ogni (minuti)</p>
+      <summary data-i18n="mqtt_summary">⚙ MQTT / Home Assistant</summary>
+      <label class="chk"><input type="checkbox" id="s-en"> <span data-i18n="mqtt_enable_label">Publish to MQTT</span></label>
+      <input id="s-host" data-i18n-ph="ph_mqtt_host" placeholder="Broker host (e.g. 192.168.1.10)">
+      <input id="s-port" type="number" data-i18n-ph="ph_mqtt_port" placeholder="Port (1883)">
+      <input id="s-user" data-i18n-ph="ph_mqtt_user" placeholder="MQTT user (optional)">
+      <input id="s-pass" type="password" placeholder="Password (optional)">
+      <input id="s-base" data-i18n-ph="ph_mqtt_base" placeholder="Base topic (findmy)">
+      <p class="muted" style="margin:10px 0 2px" data-i18n="refresh_interval_label">Update positions every (minutes)</p>
       <input id="s-refresh" type="number" min="1" placeholder="30">
-      <button class="ghost sm" id="s-save" style="margin-top:8px;width:100%">Salva impostazioni</button>
-      <p class="muted" style="margin-top:6px">Refresh e pubblicazione girano sul <b>server</b>, anche a sito chiuso. In Home Assistant i tag compaiono come <code>device_tracker</code> (MQTT discovery) con nome e ultima posizione sulla mappa.</p>
+      <button class="ghost sm" id="s-save" style="margin-top:8px;width:100%" data-i18n="save_settings">Save settings</button>
+      <p class="muted" style="margin-top:6px" data-i18n="mqtt_note">Refresh and publishing run on the server, even with the site closed. In Home Assistant the tags show up as device_tracker (MQTT discovery) with name and last position on the map.</p>
     </details>
   </div>
 
@@ -167,7 +194,7 @@
       <h3 id="m-title"></h3>
       <div id="m-list" class="mlist"></div>
       <div class="mrow">
-        <button class="ghost sm" id="m-cancel">Annulla</button>
+        <button class="ghost sm" id="m-cancel" data-i18n="cancel">Cancel</button>
         <button class="sm" id="m-ok">OK</button>
       </div>
     </div>
@@ -175,7 +202,115 @@
 
 <script src="leaflet.js"></script>
 <script>
+  // ---------- i18n ----------
+  const I18N = {
+    en: {
+      refresh:"↻ Refresh", toggle_list:"Show/hide list", rename:"rename", close:"close",
+      older:"⟵ older", newer:"newer ⟶", copy_coord:"📋 Copy",
+      pubkey_summary:"🔑 Public key (to put in the ESP / nRF)", copy_carray:"Copy C array",
+      base64_label:"Base64 (standard ASCII · e.g. for macless-haystack)", base64_label_short:"Base64 (standard ASCII)",
+      copy_base64:"Copy Base64", options:"⋯ options", delete_tag:"🗑 Delete this tag",
+      add_tag_summary:"+ Add a tag", ph_name:"Name (e.g. Scooter)", ph_privkey:"Private key (Base64)", add_tag_btn:"Add tag",
+      gen_summary:"🔑 Generate a new key (for a new ESP32)", gen_btn:"Generate P-224 pair",
+      gen_priv_label:"Private key (use it in «Add a tag»)", gen_carray_label:"C array (for key.h ESP32-S3 / nRF52)",
+      impexp_summary:"⇅ Import / Export tags (JSON)", export_btn:"⬇ Export tags…", import_btn:"⬆ Import from file…",
+      export_note:"The export includes the private keys (backup): keep it safe.",
+      mqtt_summary:"⚙ MQTT / Home Assistant", mqtt_enable_label:"Publish to MQTT",
+      ph_mqtt_host:"Broker host (e.g. 192.168.1.10)", ph_mqtt_port:"Port (1883)", ph_mqtt_user:"MQTT user (optional)",
+      ph_mqtt_base:"Base topic (findmy)", refresh_interval_label:"Update positions every (minutes)", save_settings:"Save settings",
+      mqtt_note:"Refresh and publishing run on the server, even with the site closed. In Home Assistant the tags show up as device_tracker (MQTT discovery) with name and last position on the map.",
+      cancel:"Cancel", loading:"Loading…",
+      status_tags:(n)=>`${n} tags · press Refresh`, status_no_tags:"No tags", backend_unreachable:"Backend unreachable",
+      refreshing:"Refreshing…", status_reports:(r,p)=>`${r} reports · ${p} positions`, error:"Error",
+      no_tags_hint:"No tags. Add one below ⤵", n_points:(n)=>`${n} points`, never_located:"never located",
+      key_unavailable:"(key unavailable)", unavailable:"(unavailable)", no_position_yet:"No position yet",
+      most_recent_suffix:" · most recent", oldest_suffix:" · oldest",
+      confirm_delete:(name)=>`Permanently delete "${name}"?\nThe position history will be lost.`, tag_deleted:"Tag deleted",
+      prompt_rename:"New tag name:", name_empty:"Empty name", renamed:"Renamed",
+      key_copied:"Key copied", copy_failed:"Copy failed", base64_copied:"Base64 copied", coords_copied:"Coordinates copied",
+      paste_privkey:"Paste the private key", tag_added:"Tag added", carray_copied:"C array copied",
+      nothing_to_show:"Nothing to show.", no_tags_export:"No tags to export", export_title:"Export tags",
+      download_selected:"⬇ Download selected", n_exported:(n)=>`${n} tags exported`,
+      invalid_json:"Invalid JSON", no_valid_tags:"No valid tags in the file", import_title:"Import tags",
+      import_selected:"⬆ Import selected", n_imported:(ok,tot)=>`${ok}/${tot} imported`,
+      ph_mqtt_pass:"Password (optional)", ph_mqtt_pass_saved:"Password saved (empty = unchanged)",
+      settings_saved:"Settings saved", endpoint_missing:"⚠ ENDPOINT_URL not configured",
+      hide_tooltip:"Hide from map", show_tooltip:"Show on map",
+      device_color:"Device color", reset_color:"Reset to default color",
+      device_hidden:"Device hidden", device_shown:"Device shown", color_updated:"Color updated",
+      ago_now:"just now", ago_min:(n)=>`${n}m ago`, ago_hour:(n)=>`${n}h ago`, ago_day:(n)=>`${n}d ago`,
+    },
+    it: {
+      refresh:"↻ Aggiorna", toggle_list:"Mostra/nascondi elenco", rename:"rinomina", close:"chiudi",
+      older:"⟵ più vecchio", newer:"più recente ⟶", copy_coord:"📋 Copia",
+      pubkey_summary:"🔑 Chiave pubblica (da mettere nell'ESP / nRF)", copy_carray:"Copia array C",
+      base64_label:"Base64 (ASCII standard · es. per macless-haystack)", base64_label_short:"Base64 (ASCII standard)",
+      copy_base64:"Copia Base64", options:"⋯ opzioni", delete_tag:"🗑 Elimina questo tag",
+      add_tag_summary:"+ Aggiungi un tag", ph_name:"Nome (es. Scooter)", ph_privkey:"Private key (Base64)", add_tag_btn:"Aggiungi tag",
+      gen_summary:"🔑 Genera nuova chiave (per un nuovo ESP32)", gen_btn:"Genera coppia P-224",
+      gen_priv_label:"Private key (usala in «Aggiungi un tag»)", gen_carray_label:"Array C (per key.h ESP32-S3 / nRF52)",
+      impexp_summary:"⇅ Importa / Esporta tag (JSON)", export_btn:"⬇ Esporta tag…", import_btn:"⬆ Importa da file…",
+      export_note:"L'export include le private key (backup): tienilo al sicuro.",
+      mqtt_summary:"⚙ MQTT / Home Assistant", mqtt_enable_label:"Pubblica su MQTT",
+      ph_mqtt_host:"Broker host (es. 192.168.1.10)", ph_mqtt_port:"Porta (1883)", ph_mqtt_user:"Utente MQTT (opzionale)",
+      ph_mqtt_base:"Topic base (findmy)", refresh_interval_label:"Aggiorna le posizioni ogni (minuti)", save_settings:"Salva impostazioni",
+      mqtt_note:"Refresh e pubblicazione girano sul server, anche a sito chiuso. In Home Assistant i tag compaiono come device_tracker (MQTT discovery) con nome e ultima posizione sulla mappa.",
+      cancel:"Annulla", loading:"Caricamento…",
+      status_tags:(n)=>`${n} tag · premi Aggiorna`, status_no_tags:"Nessun tag", backend_unreachable:"Backend non raggiungibile",
+      refreshing:"Aggiorno…", status_reports:(r,p)=>`${r} report · ${p} posizioni`, error:"Errore",
+      no_tags_hint:"Nessun tag. Aggiungine uno qui sotto ⤵", n_points:(n)=>`${n} punti`, never_located:"mai localizzato",
+      key_unavailable:"(chiave non disponibile)", unavailable:"(non disponibile)", no_position_yet:"Nessuna posizione ancora",
+      most_recent_suffix:" · più recente", oldest_suffix:" · più vecchio",
+      confirm_delete:(name)=>`Eliminare definitivamente "${name}"?\nLo storico delle posizioni andrà perso.`, tag_deleted:"Tag eliminato",
+      prompt_rename:"Nuovo nome del tag:", name_empty:"Nome vuoto", renamed:"Rinominato",
+      key_copied:"Chiave copiata", copy_failed:"Copia non riuscita", base64_copied:"Base64 copiato", coords_copied:"Coordinate copiate",
+      paste_privkey:"Incolla la private key", tag_added:"Tag aggiunto", carray_copied:"Array C copiato",
+      nothing_to_show:"Niente da mostrare.", no_tags_export:"Nessun tag da esportare", export_title:"Esporta tag",
+      download_selected:"⬇ Scarica selezionati", n_exported:(n)=>`${n} tag esportati`,
+      invalid_json:"JSON non valido", no_valid_tags:"Nessun tag valido nel file", import_title:"Importa tag",
+      import_selected:"⬆ Importa selezionati", n_imported:(ok,tot)=>`${ok}/${tot} importati`,
+      ph_mqtt_pass:"Password (opzionale)", ph_mqtt_pass_saved:"Password salvata (vuoto = invariata)",
+      settings_saved:"Impostazioni salvate", endpoint_missing:"⚠ ENDPOINT_URL non configurato",
+      hide_tooltip:"Nascondi dalla mappa", show_tooltip:"Mostra sulla mappa",
+      device_color:"Colore dispositivo", reset_color:"Ripristina colore predefinito",
+      device_hidden:"Dispositivo nascosto", device_shown:"Dispositivo mostrato", color_updated:"Colore aggiornato",
+      ago_now:"ora", ago_min:(n)=>`${n} min fa`, ago_hour:(n)=>`${n} h fa`, ago_day:(n)=>`${n} g fa`,
+    }
+  };
+  let LANG = localStorage.getItem('lang') || 'en';
+  let mqttPassSet = false;
+  function T(key, ...args){
+    const tbl = I18N[LANG] || I18N.en;
+    let v = tbl[key]; if(v===undefined) v = I18N.en[key];
+    if(v===undefined) return key;
+    return typeof v==='function' ? v(...args) : v;
+  }
+  function applyI18n(){
+    document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent=T(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-ph]').forEach(el=>{ el.placeholder=T(el.dataset.i18nPh); });
+    document.querySelectorAll('[data-i18n-title]').forEach(el=>{ el.title=T(el.dataset.i18nTitle); });
+    $('s-pass').placeholder = T(mqttPassSet ? 'ph_mqtt_pass_saved' : 'ph_mqtt_pass');
+    $('lang').value = LANG;
+    document.documentElement.lang = LANG;
+  }
+  function setLang(l){
+    LANG = l; localStorage.setItem('lang', LANG);
+    applyI18n();
+    renderList(TAGS);           // re-localizza l'elenco subito
+    if(selId) updateNav();      // re-localizza il navigatore
+    loadTags();                 // aggiorna stato + dati nella nuova lingua
+  }
+
+  // ---------- app ----------
   const COLORS = ['#5b8cff','#2fbf71','#e0a341','#e0556b','#9b59b6','#16a3b8','#e07b39'];
+  const colorOf = (t,i)=> t.color || COLORS[(i<0?0:i)%COLORS.length];
+  function timeAgo(ts){
+    const s=Math.max(0,(Date.now()-ts)/1000);
+    if(s<60) return T('ago_now');
+    if(s<3600) return T('ago_min', Math.floor(s/60));
+    if(s<86400) return T('ago_hour', Math.floor(s/3600));
+    return T('ago_day', Math.floor(s/86400));
+  }
   const $ = (id)=>document.getElementById(id);
   const toast = (m)=>{ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); };
   const setStatus = (m,cls)=>{ $('status').textContent=m; if(cls!==undefined) $('dot').className='dot '+cls; };
@@ -184,16 +319,16 @@
   function mapsPopup(name,p,total){
     return `<b>${name}</b><br>${new Date(p.ts).toLocaleString()}`
       + `<br><span style="font-family:var(--mono)">${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}</span> · ±${p.acc} m`
-      + (total? `<br>${total} punti` : '')
+      + (total? `<br>${T('n_points',total)}` : '')
       + `<br>🧭 <a href="${gmapsDir(p)}" target="_blank" rel="noopener" style="color:var(--accent)">Google</a>`
       + ` · 🍎 <a href="${amapsDir(p)}" target="_blank" rel="noopener" style="color:var(--accent)">Apple</a>`;
   }
 
   const map = L.map('map',{zoomControl:false}).setView([45.46,9.19],5);
-  L.control.zoom({position:'topright'}).addTo(map);
+  L.control.zoom({position:'bottomright'}).addTo(map);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
   let layers = [];
-  let TAGS = [], selId = null, idx = 0, curMarker = null, curPt = null;
+  let TAGS = [], selId = null, idx = 0, curMarker = null, curPt = null, curCircle = null;
   const selTag = ()=>TAGS.find(t=>t.id===selId);
 
   function draw(tags){
@@ -201,7 +336,8 @@
     layers.forEach(l=>map.removeLayer(l)); layers=[];
     let all=[];
     tags.forEach((t,i)=>{
-      const c = COLORS[i%COLORS.length];
+      if(t.hidden) return;                       // nascosto: non disegnato sulla mappa
+      const c = colorOf(t,i);
       const pts = (t.history||[]).map(p=>[p.lat,p.lon]);
       if(pts.length>1){ const pl=L.polyline(pts,{color:c,weight:3,opacity:.5}).addTo(map); layers.push(pl); }
       (t.history||[]).forEach((p,j)=>{
@@ -219,15 +355,17 @@
 
   function renderList(tags){
     const box=$('taglist');
-    box.innerHTML = tags.length? '' : '<p class="muted">Nessun tag. Aggiungine uno qui sotto ⤵</p>';
+    box.innerHTML = tags.length? '' : `<p class="muted">${T('no_tags_hint')}</p>`;
     tags.forEach((t,i)=>{
-      const c=COLORS[i%COLORS.length];
+      const c=colorOf(t,i);
       const h=t.history||[]; const last=h[h.length-1];
-      const el=document.createElement('div'); el.className='tag';
+      const el=document.createElement('div'); el.className='tag'+(t.hidden?' dim':'');
       el.innerHTML=`<span class="swatch" style="background:${c}"></span>
         <div class="grow"><div class="nm">${t.name}</div>
-        <div class="meta">${last? new Date(last.ts).toLocaleString()+' · '+h.length+' punti' : 'mai localizzato'}</div></div>
+        <div class="meta">${last? timeAgo(last.ts)+' · '+T('n_points',h.length) : T('never_located')}</div></div>
+        <button class="eye" title="${t.hidden?T('show_tooltip'):T('hide_tooltip')}">${t.hidden?'🙈':'👁'}</button>
         <span class="chev">›</span>`;
+      el.querySelector('.eye').onclick=(ev)=>{ ev.stopPropagation(); toggleHidden(t); };
       el.onclick=()=>selectTag(t.id);
       box.appendChild(el);
     });
@@ -244,97 +382,111 @@
   function updateNav(){
     const t=selTag(); if(!t){ closeNav(); return; }
     $('n-name').textContent=t.name;
-    $('n-carr').textContent=t.carray||'(chiave non disponibile)';
-    $('n-b64').textContent=t.advertisement||'(non disponibile)';
+    $('n-carr').textContent=t.carray||T('key_unavailable');
+    $('n-b64').textContent=t.advertisement||T('unavailable');
+    const col=colorOf(t, TAGS.indexOf(t));
+    $('n-color').value=col;
     const h=t.history||[]; const has=h.length>0;
     $('n-old').disabled=$('n-new').disabled=$('n-slider').disabled=!has;
     ['n-copy-coord','n-gmap','n-amap'].forEach(id=>$(id).disabled=!has);
     if(curMarker){ map.removeLayer(curMarker); curMarker=null; }
-    if(!has){ curPt=null; $('n-count').textContent=''; $('n-info').textContent='Nessuna posizione ancora'; return; }
+    if(curCircle){ map.removeLayer(curCircle); curCircle=null; }
+    if(!has){ curPt=null; $('n-count').textContent=''; $('n-info').textContent=T('no_position_yet'); return; }
     idx=Math.max(0,Math.min(idx,h.length-1)); const p=h[idx]; curPt=p;
-    const lbl = idx===h.length-1?' · più recente' : idx===0?' · più vecchio' : '';
+    const lbl = idx===h.length-1?T('most_recent_suffix') : idx===0?T('oldest_suffix') : '';
     $('n-count').textContent=`${h.length-idx} / ${h.length}${lbl}`;
     $('n-info').textContent=`${new Date(p.ts).toLocaleString()}  ·  ${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}`;
     $('n-slider').value=idx;
-    curMarker=L.circleMarker([p.lat,p.lon],{radius:11,color:'#fff',weight:3,fillColor:'#e0556b',fillOpacity:1}).addTo(map).bindPopup(mapsPopup(t.name,p,0));
+    if(p.acc) curCircle=L.circle([p.lat,p.lon],{radius:p.acc,color:col,weight:1,opacity:.5,fillColor:col,fillOpacity:.08}).addTo(map);
+    curMarker=L.circleMarker([p.lat,p.lon],{radius:11,color:'#fff',weight:3,fillColor:col,fillOpacity:1}).addTo(map).bindPopup(mapsPopup(t.name,p,0));
     map.panTo([p.lat,p.lon]);
   }
-  function closeNav(){ $('nav').hidden=true; selId=null; if(curMarker){map.removeLayer(curMarker);curMarker=null;} }
-  $('n-old').onclick=()=>{ idx--; updateNav(); };       // piu' vecchio
-  $('n-new').onclick=()=>{ idx++; updateNav(); };       // piu' recente
+  function closeNav(){ $('nav').hidden=true; selId=null; if(curMarker){map.removeLayer(curMarker);curMarker=null;} if(curCircle){map.removeLayer(curCircle);curCircle=null;} }
+  $('n-old').onclick=()=>{ idx--; updateNav(); };
+  $('n-new').onclick=()=>{ idx++; updateNav(); };
   $('n-slider').oninput=(e)=>{ idx=+e.target.value; updateNav(); };
   $('n-close').onclick=closeNav;
   $('n-del').onclick=async()=>{
     const t=selTag(); if(!t) return;
-    if(!confirm(`Eliminare definitivamente "${t.name}"?\nLo storico delle posizioni andrà perso.`)) return;
+    if(!confirm(T('confirm_delete', t.name))) return;
     await fetch('api/tags/'+t.id,{method:'DELETE'});
-    closeNav(); toast('Tag eliminato'); loadTags();
+    closeNav(); toast(T('tag_deleted')); loadTags();
   };
+  async function patchTag(id, body){
+    await fetch('api/tags/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    loadTags();
+  }
+  async function toggleHidden(t){
+    toast(!t.hidden ? T('device_hidden') : T('device_shown'));
+    await patchTag(t.id, {hidden: !t.hidden});
+  }
+  $('n-color').onchange=()=>{ const t=selTag(); if(t){ toast(T('color_updated')); patchTag(t.id, {color:$('n-color').value}); } };
+  $('n-color-reset').onclick=()=>{ const t=selTag(); if(t){ toast(T('color_updated')); patchTag(t.id, {color:null}); } };
   $('n-rename').onclick=async()=>{
     const t=selTag(); if(!t) return;
-    const name=prompt('Nuovo nome del tag:', t.name); if(name===null) return;
-    const nn=name.trim(); if(!nn) return toast('Nome vuoto');
+    const name=prompt(T('prompt_rename'), t.name); if(name===null) return;
+    const nn=name.trim(); if(!nn) return toast(T('name_empty'));
     const r=await fetch('api/tags/'+t.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:nn})});
     const j=await r.json(); if(j.error) return toast(j.error);
-    toast('Rinominato'); loadTags();
+    toast(T('renamed')); loadTags();
   };
   $('n-copy').onclick=async()=>{
     const t=selTag(); if(!t) return;
-    try{ await navigator.clipboard.writeText(t.carray||''); toast('Chiave copiata'); }
-    catch(_){ toast('Copia non riuscita'); }
+    try{ await navigator.clipboard.writeText(t.carray||''); toast(T('key_copied')); }
+    catch(_){ toast(T('copy_failed')); }
   };
   $('n-copy-b64').onclick=async()=>{
     const t=selTag(); if(!t) return;
-    try{ await navigator.clipboard.writeText(t.advertisement||''); toast('Base64 copiato'); }
-    catch(_){ toast('Copia non riuscita'); }
+    try{ await navigator.clipboard.writeText(t.advertisement||''); toast(T('base64_copied')); }
+    catch(_){ toast(T('copy_failed')); }
   };
   $('n-copy-coord').onclick=async()=>{
     if(!curPt) return;
-    try{ await navigator.clipboard.writeText(`${curPt.lat}, ${curPt.lon}`); toast('Coordinate copiate'); }
-    catch(_){ toast('Copia non riuscita'); }
+    try{ await navigator.clipboard.writeText(`${curPt.lat}, ${curPt.lon}`); toast(T('coords_copied')); }
+    catch(_){ toast(T('copy_failed')); }
   };
   $('n-gmap').onclick=()=>{ if(curPt) window.open(gmapsDir(curPt),'_blank','noopener'); };
   $('n-amap').onclick=()=>{ if(curPt) window.open(amapsDir(curPt),'_blank','noopener'); };
 
   async function loadTags(){
     try{ const tags=await (await fetch('api/tags')).json(); draw(tags);
-      setStatus(tags.length? `${tags.length} tag · premi Aggiorna`:'Nessun tag', '');
-    }catch(e){ setStatus('Backend non raggiungibile','off'); }
+      setStatus(tags.length? T('status_tags', tags.length):T('status_no_tags'), '');
+    }catch(e){ setStatus(T('backend_unreachable'),'off'); }
   }
   async function refresh(){
-    setStatus('Aggiorno…','');
+    setStatus(T('refreshing'),'');
     try{
       const r=await fetch('api/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
       const j=await r.json();
       if(j.error){ setStatus('⚠ '+j.error,'off'); return; }
       draw(j.tags);
       const tot=j.tags.reduce((n,t)=>n+(t.history?.length||0),0);
-      setStatus(`${j.reports} report · ${tot} posizioni`, j.reports? 'on':'');
-    }catch(e){ setStatus('Errore: '+e.message,'off'); }
+      setStatus(T('status_reports', j.reports, tot), j.reports? 'on':'');
+    }catch(e){ setStatus(T('error')+': '+e.message,'off'); }
   }
   $('refresh').onclick=refresh;
 
   $('t-add').onclick=async()=>{
     const name=$('t-name').value||'tag', pk=$('t-priv').value.trim();
-    if(!pk) return toast('Incolla la private key');
+    if(!pk) return toast(T('paste_privkey'));
     const r=await fetch('api/tags',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,privateKey:pk})});
     const j=await r.json();
     if(j.error) return toast(j.error);
-    $('t-name').value=''; $('t-priv').value=''; toast('Tag aggiunto'); loadTags();
+    $('t-name').value=''; $('t-priv').value=''; toast(T('tag_added')); loadTags();
   };
 
   $('gen').onclick=async()=>{
     const j=await (await fetch('api/generate',{method:'POST'})).json();
     $('g-priv').value=j.private; $('g-carr').textContent=j.carray; $('g-b64').textContent=j.advertisement; $('genout').hidden=false;
   };
-  $('g-copy').onclick=async()=>{ await navigator.clipboard.writeText($('g-carr').textContent); toast('Array C copiato'); };
-  $('g-copy-b64').onclick=async()=>{ await navigator.clipboard.writeText($('g-b64').textContent); toast('Base64 copiato'); };
+  $('g-copy').onclick=async()=>{ await navigator.clipboard.writeText($('g-carr').textContent); toast(T('carray_copied')); };
+  $('g-copy-b64').onclick=async()=>{ await navigator.clipboard.writeText($('g-b64').textContent); toast(T('base64_copied')); };
 
   // ---- import / export ----
   const modal=$('modal');
   function showModal(title, items, okLabel, onOk){
     $('m-title').textContent=title;
-    const list=$('m-list'); list.innerHTML = items.length? '' : '<p class="muted">Niente da mostrare.</p>';
+    const list=$('m-list'); list.innerHTML = items.length? '' : `<p class="muted">${T('nothing_to_show')}</p>`;
     items.forEach((it,i)=>{ const l=document.createElement('label'); l.innerHTML=`<input type="checkbox" checked data-i="${i}"><span>${it.name||'tag'}</span>`; list.appendChild(l); });
     $('m-ok').textContent=okLabel;
     $('m-ok').onclick=()=>{ const sel=[...list.querySelectorAll('input:checked')].map(c=>items[+c.dataset.i]); modal.hidden=true; onOk(sel); };
@@ -348,19 +500,19 @@
   }
   $('exp').onclick=async()=>{
     const tags=await (await fetch('api/export')).json();
-    if(!tags.length) return toast('Nessun tag da esportare');
-    showModal('Esporta tag', tags, '⬇ Scarica selezionati', (sel)=>{ if(!sel.length) return; download('findmy-tags.json',{type:'findmy-web-tags',version:1,tags:sel}); toast(`${sel.length} tag esportati`); });
+    if(!tags.length) return toast(T('no_tags_export'));
+    showModal(T('export_title'), tags, T('download_selected'), (sel)=>{ if(!sel.length) return; download('findmy-tags.json',{type:'findmy-web-tags',version:1,tags:sel}); toast(T('n_exported', sel.length)); });
   };
   $('imp').onclick=()=>$('impfile').click();
   $('impfile').onchange=async(e)=>{
     const f=e.target.files[0]; if(!f) return; e.target.value='';
-    let data; try{ data=JSON.parse(await f.text()); }catch(err){ return toast('JSON non valido'); }
+    let data; try{ data=JSON.parse(await f.text()); }catch(err){ return toast(T('invalid_json')); }
     const items=normalizeImport(data);
-    if(!items.length) return toast('Nessun tag valido nel file');
-    showModal('Importa tag', items, '⬆ Importa selezionati', async(sel)=>{
+    if(!items.length) return toast(T('no_valid_tags'));
+    showModal(T('import_title'), items, T('import_selected'), async(sel)=>{
       let ok=0;
       for(const t of sel){ const r=await fetch('api/tags',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(t)}); try{ if((await r.json()).ok) ok++; }catch(_){} }
-      toast(`${ok}/${sel.length} importati`); loadTags();
+      toast(T('n_imported', ok, sel.length)); loadTags();
     });
   };
 
@@ -374,7 +526,8 @@
       $('s-user').value=s.mqtt_user||'';
       $('s-base').value=s.mqtt_base||'findmy';
       $('s-refresh').value=s.refresh_min||30;
-      $('s-pass').placeholder = s.mqtt_pass_set ? 'Password salvata (vuoto = invariata)' : 'Password (opzionale)';
+      mqttPassSet=!!s.mqtt_pass_set;
+      $('s-pass').placeholder=T(mqttPassSet?'ph_mqtt_pass_saved':'ph_mqtt_pass');
     }catch(_){}
   }
   $('s-save').onclick=async()=>{
@@ -389,13 +542,23 @@
     const pw=$('s-pass').value; if(pw) body.mqtt_pass=pw;
     const r=await fetch('api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const j=await r.json(); if(j.error) return toast(j.error);
-    $('s-pass').value=''; toast('Impostazioni salvate'); loadSettings();
+    $('s-pass').value=''; toast(T('settings_saved')); loadSettings();
   };
 
+  // pannello elenco nomi: mostra/nascondi (su mobile parte nascosto -> mappa libera)
+  $('panel-toggle').onclick=()=>$('panel').classList.toggle('hide');
+  if(window.innerWidth<=600) $('panel').classList.add('hide');
+
+  // selettore lingua
+  $('lang').onchange=(e)=>setLang(e.target.value);
+
   // boot
-  fetch('api/config').then(r=>r.json()).then(c=>{ if(!c.configured) setStatus('⚠ ENDPOINT_URL non configurato','off'); }).catch(()=>{});
+  applyI18n();
+  fetch('api/config').then(r=>r.json()).then(c=>{ if(!c.configured) setStatus(T('endpoint_missing'),'off'); }).catch(()=>{});
   loadSettings();
   loadTags();
+  // auto-aggiornamento UI ogni 60s (solo in panoramica e con scheda visibile -> non disturba la navigazione)
+  setInterval(()=>{ if(!selId && document.visibilityState==='visible') loadTags(); }, 60000);
 </script>
 </body>
 </html>
