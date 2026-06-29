@@ -1,4 +1,4 @@
-# FindMy Web — Self-Hosted Find My Tracker
+# Macless_Haystack Web — Self-Hosted 
 
 A privacy-friendly, self-hosted web app to **track your DIY [OpenHaystack](https://github.com/seemoo-lab/openhaystack) / [macless-haystack](https://github.com/dchristl/macless-haystack) tags** on a beautiful map — with full position history, key management, Home Assistant integration, and more.
 
