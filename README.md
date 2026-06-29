@@ -35,7 +35,7 @@ It decrypts Apple's *Find My* location reports **on your own server** and shows 
                  └──────────────────────────────----┘
 ```
 
-FindMy Web sits **on top of** a running macless-haystack endpoint. It sends the *hashed* public keys of your tags to that endpoint, receives the **encrypted** location reports Apple collected, and decrypts them locally with each tag's **private key**.
+Macless_Haystack Web sits **on top of** a running macless-haystack endpoint. It sends the *hashed* public keys of your tags to that endpoint, receives the **encrypted** location reports Apple collected, and decrypts them locally with each tag's **private key**.
 
 ### End-to-end encryption, in short
 
@@ -53,8 +53,8 @@ A passing iPhone encrypts the location with your **public** key; Apple stores th
 
 ## 📋 Prerequisites
 
-- A working **[macless-haystack](https://github.com/dchristl/macless-haystack)** endpoint (anisette + endpoint, usually on port `6176`). FindMy Web does **not** replace it — it queries it.
-- One or more DIY Find My tags (e.g. ESP32 / nRF52 running OpenHaystack-style firmware).
+- A working **[macless-haystack](https://github.com/dchristl/macless-haystack)** endpoint (anisette + endpoint, usually on port `6176`). Macless_Haystack Web does **not** replace it — it queries it.
+- One or more DIY OpenHaystack tags (e.g. ESP32 / nRF52 running OpenHaystack-style firmware).
 - **Docker** (recommended) or Python 3.11+.
 
 ---
@@ -64,9 +64,9 @@ A passing iPhone encrypts the location with your **public** key; Apple stores th
 ```yaml
 # docker-compose.yml
 services:
-  findmy-web:
+  macless-haystack:
     image: python:3.12-slim
-    container_name: findmy-web
+    container_name: macless-haystack
     working_dir: /app
     command: sh -c "pip install --no-cache-dir -r requirements.txt && python server.py"
     ports:
@@ -125,7 +125,7 @@ Use **Import / Export** to back up or move tags between instances (JSON, with pe
 
 Enable MQTT in **⚙ MQTT / Home Assistant** in the UI (broker host/port, optional credentials, base topic, update interval). The server then publishes each tag via **MQTT discovery**:
 
-- Discovery: `homeassistant/device_tracker/findmy_<id>/config`
+- Discovery: `homeassistant/device_tracker/Macless_Haystack_<id>/config`
 - Attributes: `<base>/<id>/attributes` → `{ latitude, longitude, gps_accuracy, last_seen }`
 
 Your tags show up automatically in Home Assistant as `device_tracker` entities with their last position on the map. Make sure HA's MQTT integration points to the **same broker** (discovery is on by default). Publishing runs on the server, so it keeps working with the site closed.
@@ -154,7 +154,7 @@ Back it up by copying that folder.
 ## 🗂️ Project structure
 
 ```
-findmy-web/
+macless-haystack/
 ├── backend/
 │   ├── server.py          # Flask API + P-224 decryption + history + MQTT
 │   └── requirements.txt

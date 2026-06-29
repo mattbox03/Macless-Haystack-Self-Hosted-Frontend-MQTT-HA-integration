@@ -116,7 +116,7 @@ def decrypt_report(payload_b64, priv_bytes):
 
 # ---------- MQTT (per Home Assistant: discovery -> device_tracker GPS) ----------
 def _mqtt_msgs_for(tags):
-    base = (load_settings().get("mqtt_base") or "findmy").strip("/")
+    base = (load_settings().get("mqtt_base") or "Macless_Haystack").strip("/")
     msgs = []
     for t in tags:
         hist = t.get("history", [])
@@ -127,16 +127,16 @@ def _mqtt_msgs_for(tags):
         attr_topic = f"{base}/{oid}/attributes"
         disc = {
             "name": t["name"],
-            "unique_id": f"findmy_{oid}",
+            "unique_id": f"Macless_Haystack_{oid}",
             "json_attributes_topic": attr_topic,
             "source_type": "gps",
-            "device": {"identifiers": [f"findmy_{oid}"], "name": t["name"],
-                       "manufacturer": "findmy-web"},
+            "device": {"identifiers": [f"Macless_Haystack_{oid}"], "name": t["name"],
+                       "manufacturer": "Macless_Haystack"},
         }
         attrs = {"latitude": p["lat"], "longitude": p["lon"],
                  "gps_accuracy": int(p.get("acc", 0)),
                  "last_seen": int(p["ts"] // 1000)}
-        msgs.append({"topic": f"homeassistant/device_tracker/findmy_{oid}/config",
+        msgs.append({"topic": f"homeassistant/device_tracker/Macless_Haystack_{oid}/config",
                      "payload": json.dumps(disc), "retain": True})
         msgs.append({"topic": attr_topic, "payload": json.dumps(attrs), "retain": True})
     return msgs
@@ -165,7 +165,7 @@ def publish_positions(tags):
 
 def mqtt_remove(oid):
     """Rimuove l'entità da Home Assistant (config discovery vuota e ritenuta)."""
-    msg = [{"topic": f"homeassistant/device_tracker/findmy_{oid}/config", "payload": "", "retain": True}]
+    msg = [{"topic": f"homeassistant/device_tracker/Macless_Haystack_{oid}/config", "payload": "", "retain": True}]
     threading.Thread(target=_mqtt_send, args=(msg,), daemon=True).start()
 
 
@@ -314,7 +314,7 @@ def api_set_settings():
         try: s["mqtt_port"] = int(body["mqtt_port"])
         except Exception: pass
     if "mqtt_user" in body:    s["mqtt_user"] = str(body["mqtt_user"]).strip()
-    if "mqtt_base" in body:    s["mqtt_base"] = str(body["mqtt_base"]).strip() or "findmy"
+    if "mqtt_base" in body:    s["mqtt_base"] = str(body["mqtt_base"]).strip() or "Macless_Haystack"
     if body.get("mqtt_pass"):  s["mqtt_pass"] = str(body["mqtt_pass"])   # vuoto = invariata
     if "refresh_min" in body:
         try: s["refresh_min"] = max(1, int(body["refresh_min"]))

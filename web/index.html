@@ -89,7 +89,7 @@
   <div id="map"></div>
   <header>
     <span class="dot" id="dot"></span>
-    <h1>Find My</h1>
+    <h1>Macless_Haystack</h1>
     <div class="btns">
       <select id="lang" title="Language">
         <option value="en">EN</option>
@@ -179,7 +179,7 @@
       <input id="s-port" type="number" data-i18n-ph="ph_mqtt_port" placeholder="Port (1883)">
       <input id="s-user" data-i18n-ph="ph_mqtt_user" placeholder="MQTT user (optional)">
       <input id="s-pass" type="password" placeholder="Password (optional)">
-      <input id="s-base" data-i18n-ph="ph_mqtt_base" placeholder="Base topic (findmy)">
+      <input id="s-base" data-i18n-ph="ph_mqtt_base" placeholder="Base topic (Macless_Haystack)">
       <p class="muted" style="margin:10px 0 2px" data-i18n="refresh_interval_label">Update positions every (minutes)</p>
       <input id="s-refresh" type="number" min="1" placeholder="30">
       <button class="ghost sm" id="s-save" style="margin-top:8px;width:100%" data-i18n="save_settings">Save settings</button>
@@ -217,7 +217,7 @@
       export_note:"The export includes the private keys (backup): keep it safe.",
       mqtt_summary:"⚙ MQTT / Home Assistant", mqtt_enable_label:"Publish to MQTT",
       ph_mqtt_host:"Broker host (e.g. 192.168.1.10)", ph_mqtt_port:"Port (1883)", ph_mqtt_user:"MQTT user (optional)",
-      ph_mqtt_base:"Base topic (findmy)", refresh_interval_label:"Update positions every (minutes)", save_settings:"Save settings",
+      ph_mqtt_base:"Base topic (Macless_Haystack)", refresh_interval_label:"Update positions every (minutes)", save_settings:"Save settings",
       mqtt_note:"Refresh and publishing run on the server, even with the site closed. In Home Assistant the tags show up as device_tracker (MQTT discovery) with name and last position on the map.",
       cancel:"Cancel", loading:"Loading…",
       status_tags:(n)=>`${n} tags · press Refresh`, status_no_tags:"No tags", backend_unreachable:"Backend unreachable",
@@ -253,7 +253,7 @@
       export_note:"L'export include le private key (backup): tienilo al sicuro.",
       mqtt_summary:"⚙ MQTT / Home Assistant", mqtt_enable_label:"Pubblica su MQTT",
       ph_mqtt_host:"Broker host (es. 192.168.1.10)", ph_mqtt_port:"Porta (1883)", ph_mqtt_user:"Utente MQTT (opzionale)",
-      ph_mqtt_base:"Topic base (findmy)", refresh_interval_label:"Aggiorna le posizioni ogni (minuti)", save_settings:"Salva impostazioni",
+      ph_mqtt_base:"Topic base (Macless_Haystack)", refresh_interval_label:"Aggiorna le posizioni ogni (minuti)", save_settings:"Salva impostazioni",
       mqtt_note:"Refresh e pubblicazione girano sul server, anche a sito chiuso. In Home Assistant i tag compaiono come device_tracker (MQTT discovery) con nome e ultima posizione sulla mappa.",
       cancel:"Annulla", loading:"Caricamento…",
       status_tags:(n)=>`${n} tag · premi Aggiorna`, status_no_tags:"Nessun tag", backend_unreachable:"Backend non raggiungibile",
@@ -501,7 +501,7 @@
   $('exp').onclick=async()=>{
     const tags=await (await fetch('api/export')).json();
     if(!tags.length) return toast(T('no_tags_export'));
-    showModal(T('export_title'), tags, T('download_selected'), (sel)=>{ if(!sel.length) return; download('findmy-tags.json',{type:'findmy-web-tags',version:1,tags:sel}); toast(T('n_exported', sel.length)); });
+    showModal(T('export_title'), tags, T('download_selected'), (sel)=>{ if(!sel.length) return; download('Macless_Haystack-tags.json',{type:'macless-haystack-tags',version:1,tags:sel}); toast(T('n_exported', sel.length)); });
   };
   $('imp').onclick=()=>$('impfile').click();
   $('impfile').onchange=async(e)=>{
@@ -524,7 +524,7 @@
       $('s-host').value=s.mqtt_host||'';
       $('s-port').value=s.mqtt_port||1883;
       $('s-user').value=s.mqtt_user||'';
-      $('s-base').value=s.mqtt_base||'findmy';
+      $('s-base').value=s.mqtt_base||'Macless_Haystack';
       $('s-refresh').value=s.refresh_min||30;
       mqttPassSet=!!s.mqtt_pass_set;
       $('s-pass').placeholder=T(mqttPassSet?'ph_mqtt_pass_saved':'ph_mqtt_pass');
@@ -536,7 +536,7 @@
       mqtt_host:$('s-host').value.trim(),
       mqtt_port:+$('s-port').value||1883,
       mqtt_user:$('s-user').value.trim(),
-      mqtt_base:$('s-base').value.trim()||'findmy',
+      mqtt_base:$('s-base').value.trim()||'Macless_Haystack',
       refresh_min:+$('s-refresh').value||30,
     };
     const pw=$('s-pass').value; if(pw) body.mqtt_pass=pw;
