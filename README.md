@@ -28,11 +28,11 @@ It decrypts Apple's *Find My* location reports **on your own server** and shows 
 ## 🧩 How it works
 
 ```
-┌──────────┐     ┌──────────────────────────────┐     ┌───────────────────────┐     ┌───────┐
-│  Browser │ ──► │  FindMy Web  (this project)   │ ──► │  macless-haystack     │ ──► │ Apple │
-│  (map)   │ ◄── │  config · tags · history ·    │ ◄── │  endpoint (:6176)     │ ◄── │ servers│
-└──────────┘     │  DECRYPTION · MQTT publish    │     └───────────────────────┘     └───────┘
-                 └──────────────────────────────┘
+┌──────────┐     ┌──────────────────────────────----┐       ┌───────────────────────┐     ┌───────┐
+│  Browser │ ──► │Self-Hosted-Frontend(this project)│ ──►   │  macless-haystack     │ ──► │ Apple │
+│  (map)   │ ◄── │  config · tags · history ·       │ ◄──   │  endpoint (:6176)     │ ◄── │ servers│
+└──────────┘     │  DECRYPTION · MQTT publish       │       └───────────────────────┘     └───────┘
+                 └──────────────────────────────----┘
 ```
 
 FindMy Web sits **on top of** a running macless-haystack endpoint. It sends the *hashed* public keys of your tags to that endpoint, receives the **encrypted** location reports Apple collected, and decrypts them locally with each tag's **private key**.
