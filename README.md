@@ -81,8 +81,8 @@ services:
 ```
 
 ```bash
-git clone https://github.com/<you>/findmy-web.git
-cd findmy-web
+git clone (https://github.com/mattbox03/Macless-Haystack-Self-Hosted-Frontend-MQTT-HA-integration.git)
+cd Macless-Haystack-Self-Hosted-Frontend-MQTT-HA-integration
 # edit ENDPOINT_URL in docker-compose.yml
 docker compose up -d
 ```
