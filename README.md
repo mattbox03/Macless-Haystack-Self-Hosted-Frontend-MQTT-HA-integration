@@ -1,5 +1,7 @@
 # Macless_Haystack Web — Self-Hosted 
 
+<img width="2880" height="1630" alt="image" src="https://github.com/user-attachments/assets/7d57b664-b000-4bcc-87f8-98c269dad7ec" />
+
 A privacy-friendly, self-hosted web app to **track your DIY [OpenHaystack](https://github.com/seemoo-lab/openhaystack) / [macless-haystack](https://github.com/dchristl/macless-haystack) tags** on a beautiful map — with full position history, key management, Home Assistant integration, and more.
 
 It decrypts Apple's *Find My* location reports **on your own server** and shows them on an interactive map. Your private keys never leave your machine.
