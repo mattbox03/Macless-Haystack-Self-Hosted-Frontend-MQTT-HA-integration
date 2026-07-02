@@ -605,6 +605,92 @@ filtering, configurable endpoint routing, and MQTT payloads.
 - Do not expose the Google sidecar directly to the internet.
 - Use these tools only for devices and property you own.
 
+
+
+Build TAG (NRF52832)
+
+Install the PlatformIO IDE extension in Visual Studio Code, open
+`firmware/nrf52`, and select **Build**.
+
+Or:
+
+```bash
+cd firmware/nrf52
+pio run
+```
+
+Output:
+
+```text
+.pio/build/nrf52_dk/firmware.hex
+```
+
+A universal precompiled tracking binary is not provided because the two
+personal advertisement strings are compiled into the image.
+
+### Wire the programmer
+
+| Programmer | nRF52832 |
+|---|---|
+| `SWDIO` | `SWDIO` |
+| `SWCLK` | `SWCLK` |
+| `GND` | `GND` |
+| `VTref` | `VDD` |
+
+Remove the coin cell while the programmer supplies power. Never power the board
+from two sources.
+
+### Flash
+
+The default uploader is CMSIS-DAP/DAPLink:
+
+```bash
+pio run -t upload
+```
+
+For J-Link, change `firmware/nrf52/platformio.ini`:
+
+```ini
+debug_tool = jlink
+upload_protocol = jlink
+```
+
+Then upload again.
+
+### Verify
+
+Use nRF Connect for Mobile or another BLE scanner.
+
+Apple frame prefix:
+
+```text
+4C 00 12 19
+```
+
+Google service UUID:
+
+```text
+FEAA
+```
+
+The firmware is intentionally non-connectable and has no advertised friendly
+name.
+
+## Low-Power Hardware Advice
+
+For coin-cell operation, choose a board with:
+
+- no permanent power LED;
+- no USB-to-serial converter;
+- no high-quiescent-current regulator;
+- exposed SWD pads;
+- an optional 32.768 kHz crystal.
+
+Firmware cannot compensate for an always-on LED or inefficient regulator.
+Measure the assembled board instead of relying on theoretical battery-life
+figures.
+
+
 ## Credits and Licensing
 
 Find_My_Web is licensed under the [MIT License](LICENSE). Third-party projects
