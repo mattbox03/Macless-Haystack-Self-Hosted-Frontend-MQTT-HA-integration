@@ -1,381 +1,352 @@
 # Find_My_Web
-<img width="2880" height="1620" alt="image" src="https://github.com/user-attachments/assets/d822bf41-079c-410b-817d-0066992fb5b7" />
 
-Find_My_Web is a self-hosted, multi-provider location history and MQTT engine
-for personal Bluetooth trackers. It collects reports from two independent
-provider services:
+Find_My_Web is a self-hosted, multi-provider location-history engine for:
 
 - Apple Find My reports through
-  [macless-haystack](https://github.com/dchristl/macless-haystack)
+  [macless-haystack](https://github.com/dchristl/macless-haystack) and
+  [anisette-v3-server](https://github.com/Dadoum/anisette-v3-server)
 - Google Find Hub reports through
-  [traccar/google-find-hub-sync](https://github.com/traccar/google-find-hub-sync),
-  a fork of
-  [GoogleFindMyTools](https://github.com/leonboe1/GoogleFindMyTools)
+  [traccar/google-find-hub-sync](https://github.com/traccar/google-find-hub-sync)
+- MQTT and Home Assistant
+- a responsive Leaflet map with chronological history
+- a low-power nRF52832 firmware that broadcasts Apple and Google frames
+  simultaneously
 
-The application normalizes both providers into one append-only event store,
-shows complete history on a Leaflet map, and publishes source-aware MQTT data
-for Home Assistant.
+The repository is designed for people who do not want to manually assemble
+four unrelated container projects. One Compose project builds and connects the
+services, while each provider remains isolated in its own container.
 
-> This project uses unofficial, reverse-engineered provider integrations. It is
-> not affiliated with, endorsed by, or certified by Apple or Google. Use it
-> only with trackers and accounts you own.
+This repository does not copy the macless-haystack, anisette, or
+GoogleFindMyTools source trees. Compose downloads their published images or
+clones their public repository during the image build. Their original projects,
+authors, copyright notices, and licenses remain independent. See
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
-## Architecture
+> This project is unofficial and experimental. It is not affiliated with,
+> endorsed by, or certified by Apple or Google. Use it only to locate property
+> you own or are authorized to track.
 
-The three runtime stacks are deliberately independent:
+## What Is Included
 
-```text
-Apple devices
-    |
-    v
-macless-haystack endpoint :6176 ----+
-                                     |
-Google devices                       v
-    |                         Find_My_Web :8125
-    v                                |
-google-find-hub-sync :5500 ----------+----> SQLite history
-                                     +----> MQTT / Home Assistant
-```
-
-Apple and Google do not share a Compose file, source directory, credentials, or
-database. Find_My_Web contacts each provider over HTTP using the IP address and
-port configured in the web interface.
-
-## Features
-
-- Apple, Google, and combined `All` map views
-- Persistent map detail selector: latest positions only, or complete history
-  with separate Apple and Google tracks
-- One logical device with Apple, Google, or both provider identities
-- Append-only SQLite time-series history with deduplication
-- Absolute latest position across enabled providers
-- Source badge, timestamp, received time, accuracy, and coordinates per point
-- Google Maps and Apple Maps navigation links
-- Persistent device names, colors, visibility, and provider mappings
-- Apple-only P-224 key generation
-- Google canonical device and advertisement-key import
-- Selective JSON import and export
-- Background polling while the browser is closed
-- Raw MQTT event topics and Home Assistant MQTT discovery
-- English and Italian interface with persistent language selection
-- Responsive map, mobile bottom sheet, and collapsible device panel
-
-## Important Key Distinction
-
-Apple and Google use unrelated identities:
-
-| Provider | Value stored by Find_My_Web | Firmware value |
+| Service | Container | Purpose |
 |---|---|---|
-| Apple | 28-byte P-224 private key in Base64 | Matching 28-byte advertisement key in Base64 |
-| Google | Canonical device ID and optional public/advertisement value | 20-byte advertisement EID as 40 hexadecimal characters |
+| Anisette | `find-my-web-anisette` | Apple authentication metadata |
+| macless-haystack | `find-my-web-apple` | Apple report endpoint |
+| Google sidecar | `find-my-web-google` | Google authentication, FCM, and location decryption |
+| Find_My_Web | `find-my-web` | Event storage, map, MQTT, and provider polling |
 
-Every P-224 generation control in Find_My_Web is **Apple only**. Google
-identities are created by GoogleFindMyTools or the Traccar fork and imported;
-Find_My_Web never generates Google keys.
-
-## Prerequisites
-
-- A Linux server, ZimaOS, CasaOS, NAS, or other Docker host
-- Docker Engine and Docker Compose
-- Python 3 and an up-to-date Google Chrome installation on an x86-64 desktop
-  for the one-time Google authentication
-- An Apple account with two-factor authentication for macless-haystack
-- A Google account with Find Hub offline finding enabled
-- An MQTT broker only if MQTT or Home Assistant integration is required
-
-Use dedicated provider accounts where practical. Both integrations are
-unofficial and store credentials that can access location reports.
-
-## Recommended Server Layout
+Only the web interface is exposed by default:
 
 ```text
-/DATA/AppData/apple-find-provider/
-|-- docker-compose.yml
-`-- Docker volumes managed by Compose
-
-/DATA/AppData/google-find-hub-sync/
-|-- Auth/
-|   `-- secrets.json
-|-- microservice.py
-|-- requirements.txt
-|-- docker-compose.yml
-|-- .env
-`-- remaining traccar/google-find-hub-sync files
-
-/DATA/AppData/find-my-web/
-|-- backend/
-|-- web/
-|-- data/
-|-- docker-compose.yml
-`-- .env
+http://SERVER_IP:8125
 ```
 
-Changing these paths is supported. Keep all three directories separate.
-
-## Part 1: Configure the Apple Provider
-
-The upstream setup consists of an anisette service and the macless-haystack
-endpoint. The included template is
-[`deploy/apple-provider/docker-compose.yml`](deploy/apple-provider/docker-compose.yml).
-
-### 1. Create the Apple stack directory
-
-```bash
-mkdir -p /DATA/AppData/apple-find-provider
-cd /DATA/AppData/apple-find-provider
-```
-
-Copy `deploy/apple-provider/docker-compose.yml` into this directory.
-
-### 2. Start anisette
-
-```bash
-docker compose up -d anisette
-docker compose logs -f anisette
-```
-
-The service listens on port `6969` and persists its state in a Docker volume.
-
-### 3. Run macless-haystack interactively
-
-The first run must have an interactive terminal because it asks for the Apple
-ID, password, and two-factor code:
-
-```bash
-docker compose run --rm macless-haystack
-```
-
-Complete the prompts. The authentication data is written to the persistent
-`apple-auth` volume. When the endpoint reports that it is serving on port
-`6176`, stop the temporary interactive container with `Ctrl+C`.
-
-The upstream project currently documents SMS/text-message two-factor
-authentication. A detached first run cannot read the prompts and normally ends
-with `EOFError`.
-
-### 4. Start the persistent endpoint
-
-```bash
-docker compose up -d macless-haystack
-docker compose logs -f macless-haystack
-```
-
-Verify from another LAN machine:
-
-```bash
-curl http://SERVER_IP:6176
-```
-
-An HTTP response confirms network reachability. The exact response body is not
-important at this stage.
-
-### 5. Apple authentication troubleshooting
-
-- `401 Unauthorized` from Apple's gateway usually means the stored
-  macless-haystack authentication expired or was revoked.
-- Stop only the Apple endpoint, rerun the interactive command, and then start
-  it in the background again.
-- Do not delete the entire Find_My_Web data directory. Apple authentication,
-  Google authentication, and the event database are independent.
-- If anisette cannot be resolved, confirm both Apple services are in the same
-  Compose stack and that the service is named `anisette`.
-
-## Part 2: Configure Google Find Hub
-
-Google setup has two different secrets:
-
-1. `Auth/secrets.json`: generated by the Chrome login flow and used to access
-   the Google account.
-2. `GOOGLE_TOKEN`: a random bearer token protecting the local HTTP sidecar.
-
-They are not interchangeable.
-
-> **Environment variable names:** both Compose templates use `GOOGLE_TOKEN`.
-> The standalone Google sidecar maps it internally to the microservice's
-> `AUTH_TOKEN`. Use the same token value in the sidecar and in Find_My_Web.
-
-### 1. Enable Find Hub on Android
-
-On an Android device logged into the Google account:
-
-1. Open **Settings**.
-2. Open **Google**.
-3. Open **All services**.
-4. Open **Find My Device** or **Find Hub**.
-5. Enable offline finding using **With network in all areas** or
-   **With network in high-traffic areas only**.
-
-If the offline option is absent, install Google's Find Hub / Find My Device app.
-The upstream project notes that some accounts need a real compatible tracker
-paired once before the offline network becomes available.
-
-### 2. Authenticate on a desktop with Chrome
-
-The Traccar repository contains the sidecar used by Find_My_Web and is based on
-GoogleFindMyTools:
-
-```bash
-git clone https://github.com/traccar/google-find-hub-sync.git
-cd google-find-hub-sync
-python -m venv .venv
-```
-
-Activate the environment:
-
-```bash
-# Linux or macOS
-source .venv/bin/activate
-
-# Windows PowerShell
-.\.venv\Scripts\Activate.ps1
-```
-
-Install dependencies and start the tool:
-
-```bash
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-python main.py
-```
-
-Complete the Chrome authentication. The resulting credential file is:
+The providers communicate over a private Docker network:
 
 ```text
-Auth/secrets.json
+anisette:6969 <--- macless-haystack:6176 ---+
+                                             |
+                                             +---> Find_My_Web:8000
+                                             |
+google-provider:5500 ------------------------+
 ```
 
-The upstream projects do not support the initial authentication flow on ARM
-Linux. Generate this file on an x86-64 desktop with current Python and Chrome,
-then copy it to the server. Chrome is not required by the running sidecar.
+Apple credentials, Google credentials, provider data, and the Find_My_Web
+database are stored separately.
 
-### 3. Register a custom Google tracker
+## Requirements
 
-When `main.py` displays the device list:
+### Server
 
-1. Press `r`.
-2. Follow the registration prompts.
-3. Save the canonical device identity created in the account.
-4. Copy the 20-byte advertisement key/EID printed by the tool.
+- Linux, ZimaOS, CasaOS, a NAS, or another Docker host
+- Docker Engine
+- Docker Compose v2 (`docker compose`)
+- internet access while images and source dependencies are downloaded
 
-The firmware expects that EID as exactly 40 hexadecimal characters without
-`0x`, commas, or spaces.
+### One-time Google authentication computer
 
-### 4. Copy the Traccar repository to the server
+- x86-64 Windows, macOS, or Linux desktop
+- Python 3
+- current Google Chrome
 
-Copy the complete authenticated checkout to:
+GoogleFindMyTools does not currently support performing its authentication flow
+on ARM Linux. The resulting `Auth/secrets.json` can still be copied to and used
+by an ARM server.
 
-```text
-/DATA/AppData/google-find-hub-sync
-```
+### Optional tracker tools
 
-Confirm this file exists on the server:
+- nRF52832 module with exposed `SWDIO`, `SWCLK`, `VDD`, and `GND`
+- CMSIS-DAP/DAPLink or J-Link programmer
+- Visual Studio Code with PlatformIO, or PlatformIO Core
 
-```text
-/DATA/AppData/google-find-hub-sync/Auth/secrets.json
-```
+## Quick Start
 
-Never commit `Auth/secrets.json`.
+The complete installation is:
 
-### 5. Install the standalone Google Compose template
+1. run the bootstrap script;
+2. complete the interactive macless-haystack Apple login;
+3. generate Google `Auth/secrets.json` with GoogleFindMyTools on a desktop;
+4. copy that file to `data/google/secrets.json`;
+5. start the stack and open `http://SERVER_IP:8125`.
 
-Copy these repository files into the Google checkout:
+### Linux, ZimaOS, CasaOS, or NAS
 
-```text
-deploy/google-provider/docker-compose.yml
-deploy/google-provider/.env.example
-```
-
-Rename the environment template:
+Clone or download this repository, open a terminal in it, and run:
 
 ```bash
-cd /DATA/AppData/google-find-hub-sync
+bash scripts/bootstrap.sh
+```
+
+The script:
+
+1. creates the persistent host directories;
+2. creates `.env` with a random 64-character Google API token;
+3. pulls the Apple provider images;
+4. builds Find_My_Web and the Google sidecar;
+5. starts anisette for the Apple login step.
+
+It does not ask for Apple or Google account passwords.
+
+### Windows with Docker Desktop
+
+Open PowerShell in the repository:
+
+```powershell
+.\scripts\bootstrap.ps1
+```
+
+If PowerShell blocks local scripts, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1
+```
+
+Continue with the provider authentication sections below.
+
+## Environment Configuration
+
+The bootstrap script creates `.env`. To configure it manually:
+
+```bash
 cp .env.example .env
 ```
 
-Generate the local API bearer token:
+Then edit:
+
+```dotenv
+WEB_PORT=8125
+TZ=Europe/Rome
+GOOGLE_TOKEN=replace-with-a-random-64-character-token
+GOOGLE_FIND_HUB_REF=main
+RETENTION_DAYS=21
+REFRESH_INTERVAL=1800
+```
+
+| Variable | Default | Meaning |
+|---|---:|---|
+| `WEB_PORT` | `8125` | Host port for the web interface |
+| `TZ` | `UTC` | Container timezone |
+| `GOOGLE_TOKEN` | required | Local bearer token between Find_My_Web and the Google sidecar |
+| `GOOGLE_FIND_HUB_REF` | `main` | Traccar branch, tag, or commit to build |
+| `RETENTION_DAYS` | `21` | Local position-history retention |
+| `REFRESH_INTERVAL` | `1800` | Initial polling interval in seconds |
+
+`GOOGLE_TOKEN` is not a Google account credential. It protects the local
+sidecar API. The same value is passed automatically to both local containers.
+
+Generate one manually with:
 
 ```bash
 openssl rand -hex 32
 ```
 
-Place it in `.env`:
+Do not commit `.env`.
 
-```dotenv
-GOOGLE_TOKEN=paste-the-generated-random-token
-GOOGLE_APP_ROOT=/DATA/AppData/google-find-hub-sync
-```
+## Apple Provider Setup
 
-### 6. Start and verify the Google sidecar
+macless-haystack requires an interactive first login. The upstream project
+currently supports Apple two-factor authentication through SMS/text message.
 
-```bash
-docker compose up -d
-docker compose logs -f
-```
+Use a dedicated Apple account where practical. This is an unofficial
+integration and its persistent volume contains reusable authentication data.
 
-Test authentication:
+### 1. Start anisette
+
+The bootstrap script already does this. Otherwise run:
 
 ```bash
-curl -H "Authorization: Bearer YOUR_TOKEN" \
-  http://SERVER_IP:5500/devices
+docker compose up -d anisette
 ```
 
-A successful response contains a `devices` array. A `401` means the bearer
-token sent by the client does not match `AUTH_TOKEN`. Authentication failures
-inside the Google tooling instead indicate a stale or invalid
-`Auth/secrets.json`.
+### 2. Run the interactive Apple login
 
-Keep port `5500` private to the LAN.
+```bash
+docker compose run --rm macless-haystack
+```
 
-## Part 3: Deploy Find_My_Web
+Enter the Apple ID, password, and verification code when requested.
 
-### 1. Copy the application
+When the output reports that the endpoint is serving on port `6176`, the
+authentication data has been saved in the `find-my-web-apple-auth` Docker
+volume. Press `Ctrl+C` to stop the temporary interactive container.
 
-Copy this repository to:
+### 3. Start the normal Apple container
+
+```bash
+docker compose up -d macless-haystack
+```
+
+Check it:
+
+```bash
+docker compose logs --tail=100 macless-haystack
+```
+
+The service name `anisette` resolves automatically because both containers are
+on the same Compose network.
+
+### 4. Confirm the Apple connection
+
+No Apple IP, port, or URL must be entered in Find_My_Web. Compose already sets:
 
 ```text
-/DATA/AppData/find-my-web
+Find_My_Web -> http://macless-haystack:6176
+macless-haystack -> http://anisette:6969
 ```
 
-The directory must contain `backend`, `web`, `docker-compose.yml`, and
-`.env.example`.
+Open the web interface, expand **Provider connections**, and confirm that the
+Apple host is `macless-haystack` and the port is `6176`. Press **Refresh** after
+adding an Apple device.
 
-### 2. Create the persistent data directory
+The Apple tracker identity itself is configured separately:
+
+1. generate an Apple P-224 pair in Find_My_Web;
+2. keep the private key in Find_My_Web;
+3. copy only the Base64 advertisement key to the tracker firmware.
+
+## Google Provider Setup
+
+Google authentication must be generated on a desktop with an up-to-date Chrome
+installation. Do not attempt the initial browser authentication inside the
+headless server container.
+
+### Understand the three Google values
+
+| Value | Where it comes from | Where it goes |
+|---|---|---|
+| `GOOGLE_TOKEN` | Randomly generated by `bootstrap.sh` or `bootstrap.ps1` | `.env`; protects only the local sidecar API |
+| `Auth/secrets.json` | Generated by running GoogleFindMyTools with Chrome | `data/google/secrets.json`; authenticates the Google account |
+| 40-character advertisement EID | Generated when pressing `r` in GoogleFindMyTools | Find_My_Web device field and nRF52 firmware |
+
+`GOOGLE_TOKEN` is not downloaded from GoogleFindMyTools. The Google account
+credential and the tracker advertisement EID are.
+
+### 1. Enable Find Hub offline finding
+
+On an Android device logged into the intended Google account:
+
+1. open **Settings**;
+2. open **Google**;
+3. open **All services**;
+4. open **Find My Device** or **Find Hub**;
+5. enable offline finding in all areas or high-traffic areas.
+
+Some accounts require pairing a commercial Find Hub tracker once before the
+encryption data becomes available.
+
+### 2. Generate `Auth/secrets.json`
+
+Download GoogleFindMyTools on the desktop. Using Git:
 
 ```bash
-mkdir -p /DATA/AppData/find-my-web/data
-cd /DATA/AppData/find-my-web
-cp .env.example .env
+git clone https://github.com/leonboe1/GoogleFindMyTools.git
+cd GoogleFindMyTools
+python -m venv .venv
 ```
 
-### 3. Configure provider URLs
+Without Git, open
+[GoogleFindMyTools](https://github.com/leonboe1/GoogleFindMyTools), select
+**Code > Download ZIP**, extract it, and open a terminal in the extracted
+directory before running `python -m venv .venv`.
 
-Edit `.env`:
+Activate the environment.
 
-```dotenv
-APPLE_ENDPOINT_URL=http://SERVER_IP:6176
-APPLE_ENDPOINT_USER=
-APPLE_ENDPOINT_PASS=
-APPLE_HISTORY_DAYS=7
+Windows:
 
-GOOGLE_ENDPOINT_URL=http://SERVER_IP:5500
-GOOGLE_TOKEN=
-
-APP_ROOT=/DATA/AppData/find-my-web
+```powershell
+.\.venv\Scripts\activate
 ```
 
-Use the Docker host's real LAN address. Docker service names from one Compose
-stack do not resolve inside another independent stack unless an external Docker
-network has been configured.
+Linux or macOS:
 
-`GOOGLE_TOKEN` is optional in the Find_My_Web `.env`. It can instead be
-saved from the web interface. The Google sidecar still requires
-`GOOGLE_TOKEN` in its own `.env`; use the same value in both places.
+```bash
+source .venv/bin/activate
+```
 
-### 4. Start the application
+Install and start:
+
+```bash
+pip install -r requirements.txt
+python main.py
+```
+
+Complete the Chrome login. The tool stores the reusable result at:
+
+```text
+GoogleFindMyTools/Auth/secrets.json
+```
+
+Treat this file as a password.
+
+### 3. Register a custom Google tracker
+
+While `main.py` is running, press `r` when offered the registration action.
+Store both values returned by the tool:
+
+- the canonical Google device ID;
+- the 20-byte advertisement EID represented by 40 hexadecimal characters.
+
+The EID is the string used by the nRF52 firmware.
+
+### 4. Copy the Google authentication file
+
+Copy:
+
+```text
+GoogleFindMyTools/Auth/secrets.json
+```
+
+to:
+
+```text
+Find_My_Web_Complete_Stack/data/google/secrets.json
+```
+
+The Google container deliberately waits without restarting when this file is
+missing. After copying it:
+
+```bash
+docker compose restart google-provider
+```
+
+Check it:
+
+```bash
+docker compose logs --tail=100 google-provider
+```
+
+## Start the Complete Stack
+
+After both provider setup procedures:
 
 ```bash
 docker compose up -d
-docker compose logs -f
+```
+
+Show status:
+
+```bash
+docker compose ps
 ```
 
 Open:
@@ -384,235 +355,464 @@ Open:
 http://SERVER_IP:8125
 ```
 
-The Compose template uses an official Python image and bind-mounted source, so
-ZimaOS and CasaOS do not need to build a custom image.
+Find_My_Web is already configured to contact:
 
-### 5. Configure providers from the UI
+```text
+http://macless-haystack:6176
+http://google-provider:5500
+```
 
-Open **Provider connections**:
+No provider IP addresses are required for the bundled Compose stack. The
+provider settings remain editable in the web interface for advanced external
+deployments.
 
-- Apple host: server IP or DNS name
-- Apple port: `6176`
-- Google host: server IP or DNS name
-- Google port: `5500`
-- Google API bearer token: the same token used by the standalone Google sidecar
+## ZimaOS and CasaOS GUI Installation
 
-These values are stored in `/data/settings.json` and take effect on the next
-manual or background refresh. They change where Find_My_Web connects; they do
-not change Docker's published ports. A token entered in the UI is stored
-server-side with restricted file permissions. The API reports only whether a
-token exists and never returns its value to the browser. A saved UI token takes
-precedence over the environment default.
+If terminal access is available, run the bootstrap script first and then import
+`compose.yaml` in the graphical Docker application.
 
-## Part 4: Add Trackers
+If only the GUI is available:
 
-### Apple-only device
+1. upload the complete repository to an AppData directory;
+2. duplicate `.env.example` as `.env`;
+3. replace `GOOGLE_TOKEN` with a long random hexadecimal value;
+4. ensure these host directories exist:
+   - `data/google`
+   - `data/web`
+5. import `compose.yaml`;
+6. initially start only `anisette`;
+7. use a terminal once for the interactive Apple command:
 
-1. Open **Generate Apple P-224 keys**, or use a compatible OpenHaystack
-   generator.
-2. Store the private key securely.
-3. Paste the private key into **Add a device**.
-4. Copy the displayed Base64 advertisement key into the Apple firmware field.
-5. Flash the tracker.
+   ```bash
+   docker compose run --rm macless-haystack
+   ```
 
-The private key decrypts reports and must never be placed in firmware. The
-advertisement key is public and is intentionally broadcast over BLE.
+8. copy Google `secrets.json` to `data/google/secrets.json`;
+9. start the complete Compose application.
 
-After generating a key, Find_My_Web asks whether to create a new logical device.
-Declining leaves the generated values available for copying. You can also choose
-an existing device and apply the generated Apple identity to it. To replace an
-existing identity, open its **Apple P-224 advertisement key** section. The UI
-shows the current advertisement string and lets you enter the replacement
-advertisement plus its matching private key. The backend verifies the pair
-before saving it. Replacing only the public key would make report decryption
-impossible and is therefore rejected.
+The Apple data uses named Docker volumes because Docker seeds the files supplied
+by the upstream image. The web database and Google authentication use visible
+directories inside this repository for straightforward backup.
 
-### Google-only device
+## Add Devices in Find_My_Web
 
-1. Register the tracker with `main.py` by pressing `r`.
-2. Paste the 40-character advertisement EID into the Google firmware field.
-3. Flash the tracker.
-4. In Find_My_Web, add a device and select or paste its canonical Google device
-   ID.
-5. Store the Google advertisement EID in the device's **Google advertisement
-   EID** field. Find_My_Web then keeps the exact firmware string with the
-   logical device.
+### Apple identity
 
-### Dual-provider device
+1. open **Generate Apple P-224 keys**;
+2. generate a pair;
+3. store the private key in Find_My_Web;
+4. copy the displayed Base64 advertisement key to the firmware.
 
-Create one logical device and configure both:
+P-224 generation is Apple-only. The Apple private key decrypts reports and must
+never be placed in firmware.
 
-- Apple private key
-- Google canonical device ID
-- Google advertisement EID
+For an existing logical device, open **Apple P-224 advertisement key**. The UI
+shows the current firmware string. To replace it, enter the new advertisement
+string and its matching private key. The backend verifies the pair before
+saving.
 
-Apple and Google reports remain separate events in SQLite. The `All` view sorts
-both sources together only for display. The latest event by device timestamp is
-used as the combined Home Assistant position.
+### Google identity
 
-Use the **Map** selector above the device list to choose:
+1. add or open the same logical device;
+2. select or paste the Google canonical device ID;
+3. paste the 40-character Google advertisement EID;
+4. save provider settings.
 
-- **Latest positions**: one current marker per selected provider and device.
-- **All positions + tracks**: every retained point plus chronological provider
-  tracks. Google tracks are dashed; Apple tracks are solid.
+Find_My_Web stores the Google EID for firmware convenience. It does not generate
+Google identities.
+
+### Dual-network identity
+
+One logical device can contain:
+
+- one Apple private identity;
+- one Apple advertisement string;
+- one Google canonical device ID;
+- one Google advertisement EID.
+
+Apple and Google positions remain separate time-series events. The `All` view
+combines them only for display.
+
+## Map Controls
+
+The source selector supports:
+
+- `Apple`
+- `Google`
+- `All`
+
+The persistent map-detail selector supports:
+
+- **Latest positions**: one current marker per selected provider;
+- **All positions + tracks**: every retained point and chronological tracks.
+
+Apple tracks are solid and Google tracks are dashed. Clicking a point displays
+its source, timestamp, received time, accuracy, coordinates, and navigation
+links.
 
 ## MQTT and Home Assistant
 
-Open **MQTT / Home Assistant** and configure:
+Open **MQTT / Home Assistant** in the web interface and configure:
 
-- broker host and port
-- optional username and password
-- base topic, default `Find_My_Web`
-- background refresh interval
+- broker host and port;
+- optional username and password;
+- base topic;
+- automatic refresh interval.
 
-For each logical device, enable Apple MQTT, Google MQTT, or both.
-
-Each new event is published to:
-
-```text
-Find_My_Web/events/<device_id>/<source>
-```
-
-Payload schema:
+Polling and MQTT publication happen in the backend, even when no browser is
+open. Every normalized event includes:
 
 ```json
 {
-  "device_id": "logical-device-id",
-  "tracker_id": "provider-specific-id",
+  "tracker_id": "logical-device-id",
   "source": "apple",
-  "latitude": 45.4642,
-  "longitude": 9.1900,
+  "latitude": 45.000000,
+  "longitude": 9.000000,
   "accuracy": 12,
-  "timestamp": 1782921000000,
-  "received_at": 1782921010000
+  "timestamp": 1780000000000,
+  "received_at": 1780000005000
 }
 ```
 
-Home Assistant MQTT discovery creates:
+Per-device checkboxes control whether Apple, Google, or both sources are
+published. Home Assistant MQTT discovery creates per-source trackers and a
+combined latest tracker.
 
-- one Apple `device_tracker` when Apple MQTT is enabled
-- one Google `device_tracker` when Google MQTT is enabled
-- one combined `device_tracker` using the newest enabled source
+## nRF52832 Dual-Network Firmware
 
-Publishing and refresh run in the backend even when no browser is open.
+The firmware is in:
 
-## Persistent Data and Backups
+```text
+firmware/nrf52
+```
 
-| Path | Contents |
+It creates two independent controller-managed advertising sets:
+
+- Apple manufacturer data;
+- Google Find Hub `FEAA` service data.
+
+If both strings are configured, both sets remain active simultaneously. The CPU
+does not wake up to alternate protocols.
+
+### 1. Insert the strings
+
+Edit:
+
+```text
+firmware/nrf52/include/tracker_keys.h
+```
+
+Apple, copied from Find_My_Web:
+
+```c
+#define APPLE_ADVERTISEMENT_KEY_BASE64 "PASTE_40_CHARACTER_BASE64_STRING"
+```
+
+Google, copied from GoogleFindMyTools or the Find_My_Web device field:
+
+```c
+#define GOOGLE_ADVERTISEMENT_KEY_HEX "00112233445566778899aabbccddeeff00112233"
+```
+
+Do not add `0x`, commas, spaces, or C byte arrays. Leave one string empty to
+disable only that provider.
+
+### 2. Select interval and power
+
+In the same file:
+
+```c
+#define ADVERTISING_INTERVAL_MS 2000U
+#define ADVERTISING_TX_POWER_DBM 0
+```
+
+Recommended profiles:
+
+| Goal | Interval | Power | Trade-off |
+|---|---:|---:|---|
+| Recommended | `2000U` | `0` | Google-compatible balance |
+| Faster sightings | `1000U` | `0` | More radio activity |
+| Maximum range | `2000U` | `4` | Higher peak current |
+| Indoor saving | `2000U` | `-4` | Reduced range and below Google's 0 dBm recommendation |
+| Aggressive saving | `4000U` | `-8` | Slower and outside Google's two-second recommendation |
+
+Google recommends at least one frame every two seconds and at least 0 dBm
+conducted transmit power. Start with the defaults.
+
+### 3. Build
+
+Install the PlatformIO IDE extension in Visual Studio Code, open
+`firmware/nrf52`, and select **Build**.
+
+Or:
+
+```bash
+cd firmware/nrf52
+pio run
+```
+
+Output:
+
+```text
+.pio/build/nrf52_dk/firmware.hex
+```
+
+A universal precompiled tracking binary is not provided because the two
+personal advertisement strings are compiled into the image.
+
+### 4. Wire the programmer
+
+| Programmer | nRF52832 |
 |---|---|
-| `/data/tags.json` | logical devices, provider identities, names, colors, visibility, MQTT selections |
-| `/data/settings.json` | provider addresses, Google bearer token, refresh interval, and MQTT configuration |
-| `/data/events.db` | normalized append-only position history |
+| `SWDIO` | `SWDIO` |
+| `SWCLK` | `SWCLK` |
+| `GND` | `GND` |
+| `VTref` | `VDD` |
 
-Back up the complete `/DATA/AppData/find-my-web/data` directory. It contains
-Apple private keys and location history.
+Remove the coin cell while the programmer supplies power. Never power the board
+from two sources.
 
-Also back up separately:
+### 5. Flash
 
-- Apple provider authentication volume
-- Google `Auth/secrets.json`
-- each Google advertisement EID
+The default uploader is CMSIS-DAP/DAPLink:
 
-## Import and Export
+```bash
+pio run -t upload
+```
 
-The frontend can export all devices or a selected subset as JSON. Imports show
-a selection dialog before writing anything. Exports can contain Apple private
-keys, so handle them as credentials rather than ordinary configuration files.
+For J-Link, change `firmware/nrf52/platformio.ini`:
 
-## HTTP API
+```ini
+debug_tool = jlink
+upload_protocol = jlink
+```
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/api/config` | provider status and effective endpoint URLs |
-| `GET` | `/api/settings` | persistent UI settings without passwords |
-| `POST` | `/api/settings` | update provider, refresh, and MQTT settings |
-| `GET` | `/api/devices` | logical devices with combined history |
-| `GET` | `/api/devices?source=apple` | Apple-only history |
-| `GET` | `/api/devices?source=google` | Google-only history |
-| `POST` | `/api/devices` | create a logical device |
-| `PATCH` | `/api/devices/<id>` | update identity, name, color, visibility, or MQTT selection |
-| `DELETE` | `/api/devices/<id>` | permanently delete a device and its history |
-| `GET` | `/api/events` | query normalized time-series events |
-| `POST` | `/api/refresh` | poll both configured providers immediately |
-| `POST` | `/api/generate` | generate an Apple-only P-224 key pair |
-| `GET` | `/api/google/devices` | list devices returned by the Google sidecar |
-| `GET` | `/api/export` | export device configuration |
+Then upload again.
+
+### 6. Verify
+
+Use nRF Connect for Mobile or another BLE scanner.
+
+Apple frame prefix:
+
+```text
+4C 00 12 19
+```
+
+Google service UUID:
+
+```text
+FEAA
+```
+
+The firmware is intentionally non-connectable and has no advertised friendly
+name.
+
+## Low-Power Hardware Advice
+
+For coin-cell operation, choose a board with:
+
+- no permanent power LED;
+- no USB-to-serial converter;
+- no high-quiescent-current regulator;
+- exposed SWD pads;
+- an optional 32.768 kHz crystal.
+
+Firmware cannot compensate for an always-on LED or inefficient regulator.
+Measure the assembled board instead of relying on theoretical battery-life
+figures.
+
+## Backup
+
+Back up visible data:
+
+```bash
+cp -a data backups/data
+cp .env backups/find-my-web.env
+```
+
+Back up the Apple named volume:
+
+```bash
+mkdir -p backups
+docker run --rm \
+  -v find-my-web-apple-auth:/source:ro \
+  -v "$PWD/backups":/backup \
+  alpine sh -c "cd /source && tar czf /backup/apple-auth.tgz ."
+```
+
+Back up anisette similarly:
+
+```bash
+docker run --rm \
+  -v find-my-web-anisette-data:/source:ro \
+  -v "$PWD/backups":/backup \
+  alpine sh -c "cd /source && tar czf /backup/anisette-data.tgz ."
+```
+
+Never publish:
+
+- `.env`
+- `data/google/secrets.json`
+- Apple private keys
+- exported device JSON backups
+- MQTT passwords
 
 ## Updating
 
-1. Back up all persistent data and provider credentials.
-2. Stop only the stack being updated.
-3. Replace its source files or pull the repository.
-4. Start that stack again.
-5. Check its logs and then trigger a manual refresh.
+```bash
+docker compose pull
+docker compose build --pull
+docker compose up -d
+```
 
-Updating Find_My_Web does not require recreating either provider container.
-Updating a provider does not require deleting `events.db`.
+Back up first. Setting `GOOGLE_FIND_HUB_REF` to a commit hash makes Google
+sidecar builds reproducible; `main` follows current upstream development.
 
 ## Troubleshooting
 
-### Reports exist but no positions are shown
+### Apple endpoint asks for login after restart
 
-- Confirm the correct Apple private key or Google canonical ID is assigned.
-- Check provider logs before changing the event database.
-- Verify that timestamps and coordinates are present in `/api/events`.
-
-### Google device list is empty
-
-- Test `/devices` directly with the bearer token.
-- Confirm `Auth/secrets.json` exists inside the Google container.
-- Confirm offline finding is enabled on the Google account.
-- Re-run desktop authentication if the credential file was revoked.
-
-### Apple returns 401
-
-Re-authenticate only the macless-haystack endpoint interactively. Do not delete
-Find_My_Web or Google data.
-
-### A container cannot reach a provider by service name
-
-The stacks are intentionally separate. Use `http://SERVER_IP:PORT`, or create
-and attach an explicit external Docker network.
-
-### ZimaOS reports `/root/.docker` as read-only
-
-Use the graphical stack installer or the supplied no-build Compose templates.
-All application state is bind-mounted under `/DATA/AppData`.
-
-## Development and Verification
+Confirm the `find-my-web-apple-auth` volume still exists:
 
 ```bash
-python -m pip install -r backend/requirements.txt
-python -m unittest discover -s tests -v
-python backend/server.py
+docker volume ls
 ```
 
-Then open `http://127.0.0.1:8000`.
+Do not delete the complete volume. Re-run:
 
-The integration test encrypts a real Apple report, mocks a Google report,
-refreshes both providers, and verifies normalized SQLite events, source
-filtering, configurable endpoint routing, and MQTT payloads.
+```bash
+docker compose run --rm macless-haystack
+```
+
+### Apple returns HTTP 401
+
+The Apple session has expired or been revoked. Back up the Apple volume, stop
+the service, and repeat the interactive login. If the upstream application
+continues using an invalid token, remove only its cached `auth.json`:
+
+```bash
+docker compose run --rm --entrypoint sh macless-haystack \
+  -lc "rm -f /app/endpoint/data/auth.json"
+docker compose run --rm macless-haystack
+```
+
+### Google container says it is waiting
+
+Copy a non-empty file to:
+
+```text
+data/google/secrets.json
+```
+
+Then:
+
+```bash
+docker compose restart google-provider
+```
+
+### Google returns HTTP 401
+
+The local `GOOGLE_TOKEN` values do not match or the container was not recreated
+after `.env` changed:
+
+```bash
+docker compose up -d --force-recreate google-provider find-my-web
+```
+
+### Google account authentication fails
+
+Regenerate `Auth/secrets.json` with current Chrome and current
+GoogleFindMyTools. Verify offline finding is enabled on Android.
+
+### The map has reports but no positions
+
+Check provider logs:
+
+```bash
+docker compose logs --tail=200 macless-haystack
+docker compose logs --tail=200 google-provider
+docker compose logs --tail=200 find-my-web
+```
+
+Confirm the device uses matching firmware and backend identities.
+
+### The nRF52 does not advertise
+
+- verify the key string lengths;
+- rebuild after editing `tracker_keys.h`;
+- confirm the programmer flashed the new `firmware.hex`;
+- scan for raw Apple manufacturer data and Google `FEAA` service data;
+- confirm the module is an nRF52832 and not a pin-incompatible board.
+
+## Repository Layout
+
+```text
+.
+├── app/
+│   ├── backend/
+│   └── web/
+├── data/
+│   ├── google/
+│   └── web/
+├── docker/
+├── firmware/
+│   └── nrf52/
+├── scripts/
+├── tests/
+├── compose.yaml
+└── README.md
+```
+
+## Development
+
+Run backend tests:
+
+```bash
+python -m pip install -r app/backend/requirements.txt
+python -m unittest discover -s tests -v
+```
+
+Build the web image:
+
+```bash
+docker build -f docker/find-my-web.Dockerfile -t find-my-web .
+```
+
+GitHub Actions tests the Python engine and compiles the nRF52832 firmware.
 
 ## Security
 
-- Never commit `.env`, `/data`, `Auth/secrets.json`, Apple private keys, or
-  exported tracker JSON files.
-- Treat `/data/settings.json` as a credential because it can contain the Google
-  sidecar bearer token.
-- Keep ports `6176`, `5500`, `6969`, and `8125` on a trusted LAN or behind an
-  authenticated reverse proxy.
-- Use a long random Google bearer token.
-- Do not expose the Google sidecar directly to the internet.
-- Use these tools only for devices and property you own.
+- Keep the provider network private.
+- Do not expose provider ports directly to the internet.
+- Put the web UI behind authenticated HTTPS before exposing it outside the LAN.
+- Use dedicated provider accounts where practical.
+- Keep `.env`, `secrets.json`, private keys, and backups outside Git.
+- Review upstream changes before rebuilding from a new Google ref.
 
-## Credits and Licensing
+## Upstream Projects and Licenses
 
-Find_My_Web is licensed under the [MIT License](LICENSE). Third-party projects
-retain their own licenses:
+This repository contains original Find_My_Web and nRF52 integration code under
+the MIT License. External containers and source fetched while building retain
+their own licenses. Referencing public images and repositories from a Compose
+file is a normal integration pattern, but it does not transfer ownership or
+relicense third-party code.
 
-- [macless-haystack](https://github.com/dchristl/macless-haystack), AGPL-3.0
-- [OpenHaystack](https://github.com/seemoo-lab/openhaystack), Apple network research
-- [GoogleFindMyTools](https://github.com/leonboe1/GoogleFindMyTools), GPL-3.0
-- [traccar/google-find-hub-sync](https://github.com/traccar/google-find-hub-sync), GPL-3.0
-- [Leaflet](https://leafletjs.com/), map rendering
-- [OpenStreetMap](https://www.openstreetmap.org/), map data
+- [macless-haystack](https://github.com/dchristl/macless-haystack), AGPL-3.0,
+  by Denis Christl and contributors
+- [anisette-v3-server](https://github.com/Dadoum/anisette-v3-server), by Dadoum
+  and contributors
+- [GoogleFindMyTools](https://github.com/leonboe1/GoogleFindMyTools), GPL-3.0,
+  by Leon Boettger and contributors
+- [traccar/google-find-hub-sync](https://github.com/traccar/google-find-hub-sync),
+  GPL-3.0, maintained by Traccar and based on GoogleFindMyTools
+- [OpenHaystack](https://github.com/seemoo-lab/openhaystack)
+- [Leaflet](https://leafletjs.com/), BSD-2-Clause
+- [OpenStreetMap](https://www.openstreetmap.org/)
+
+The Compose project references upstream software; it does not vendor those
+source repositories. If you later publish modified or prebuilt third-party
+images, review the corresponding GPL/AGPL source-distribution obligations.
+This summary is practical project guidance, not legal advice.
+
+Third-party names and trademarks belong to their respective owners.

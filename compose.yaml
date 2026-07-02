@@ -1,0 +1,79 @@
+name: find-my-web
+
+services:
+  anisette:
+    image: dadoum/anisette-v3-server:latest
+    container_name: find-my-web-anisette
+    restart: unless-stopped
+    volumes:
+      - anisette-data:/home/Alcoholic/.config/anisette-v3
+    networks:
+      - providers
+
+  macless-haystack:
+    image: christld/macless-haystack:latest
+    container_name: find-my-web-apple
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    depends_on:
+      - anisette
+    volumes:
+      - apple-auth:/app/endpoint/data
+    networks:
+      - providers
+
+  google-provider:
+    build:
+      context: .
+      dockerfile: docker/google-provider.Dockerfile
+      args:
+        GOOGLE_FIND_HUB_REF: ${GOOGLE_FIND_HUB_REF:-main}
+    container_name: find-my-web-google
+    restart: unless-stopped
+    environment:
+      AUTH_TOKEN: ${GOOGLE_TOKEN:?Run the bootstrap script or configure GOOGLE_TOKEN in .env}
+      HOST: 0.0.0.0
+      PORT: 5500
+      PYTHONUNBUFFERED: 1
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./data/google:/data
+    networks:
+      - providers
+
+  find-my-web:
+    build:
+      context: .
+      dockerfile: docker/find-my-web.Dockerfile
+    container_name: find-my-web
+    restart: unless-stopped
+    depends_on:
+      - macless-haystack
+      - google-provider
+    ports:
+      - "${WEB_PORT:-8125}:8000"
+    environment:
+      ENDPOINT_URL: http://macless-haystack:6176
+      GOOGLE_URL: http://google-provider:5500
+      GOOGLE_TOKEN: ${GOOGLE_TOKEN:?Run the bootstrap script or configure GOOGLE_TOKEN in .env}
+      WEB_DIR: /web
+      DATA_DIR: /data
+      RETENTION_DAYS: ${RETENTION_DAYS:-21}
+      REFRESH_INTERVAL: ${REFRESH_INTERVAL:-1800}
+      TZ: ${TZ:-UTC}
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ./data/web:/data
+    networks:
+      - providers
+
+networks:
+  providers:
+    name: find-my-web-providers
+
+volumes:
+  anisette-data:
+    name: find-my-web-anisette-data
+  apple-auth:
+    name: find-my-web-apple-auth

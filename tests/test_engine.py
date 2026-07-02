@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BACKEND = ROOT / "backend"
+BACKEND = ROOT / "app" / "backend"
 sys.path.insert(0, str(BACKEND))
 
 

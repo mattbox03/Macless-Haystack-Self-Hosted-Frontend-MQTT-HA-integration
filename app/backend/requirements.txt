@@ -1,0 +1,5 @@
+flask
+requests
+cryptography
+waitress
+paho-mqtt
