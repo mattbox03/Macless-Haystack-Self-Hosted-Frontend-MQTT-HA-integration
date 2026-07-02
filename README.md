@@ -1,4 +1,5 @@
 # Find_My_Web
+<img width="2880" height="1620" alt="image" src="https://github.com/user-attachments/assets/d822bf41-079c-410b-817d-0066992fb5b7" />
 
 Find_My_Web is a self-hosted, multi-provider location history and MQTT engine
 for personal Bluetooth trackers. It collects reports from two independent
