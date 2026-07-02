@@ -1,0 +1,18 @@
+name: google-find-hub-provider
+
+services:
+  google-provider:
+    image: python:3.11-slim
+    container_name: google-find-hub-provider
+    working_dir: /app
+    command: sh -c "pip install --no-cache-dir -r requirements.txt && python microservice.py"
+    restart: unless-stopped
+    ports:
+      - "5500:5500"
+    environment:
+      - AUTH_TOKEN=${GOOGLE_TOKEN}
+      - HOST=0.0.0.0
+      - PORT=5500
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ${GOOGLE_APP_ROOT:-/DATA/AppData/google-find-hub-sync}:/app

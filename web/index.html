@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Macless_Haystack · Self-Hosted</title>
+<meta name="theme-color" content="#0d1017">
+<title>Find_My_Web · Self-Hosted</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="leaflet.css">
 <style>
   :root{
@@ -17,19 +19,27 @@
   #map{position:fixed;inset:0;z-index:0;background:#0d1017}
   .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#1b1f2b;color:var(--txt)}
   header{position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;align-items:center;gap:10px;
-    padding:12px 16px;background:linear-gradient(#0d1017ee,#0d101700);pointer-events:none}
+    padding:max(12px,env(safe-area-inset-top)) 16px 20px;background:linear-gradient(#0d1017f2,#0d101700);pointer-events:none}
   header h1{font-size:16px;margin:0;font-weight:700;flex:1;pointer-events:auto}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
   .dot.on{background:var(--ok)} .dot.off{background:var(--bad)}
   header .btns{pointer-events:auto;display:flex;gap:8px;align-items:center}
-  button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer}
+  button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer}
   button.ghost{background:#222838;color:var(--txt);border:1px solid var(--line)}
   button.sm{padding:7px 10px;font-size:12px}
   button:active{transform:translateY(1px)}
-  select#lang{background:#222838;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:9px 8px;font-size:13px;font-weight:600;cursor:pointer}
+  select#lang{background:#222838;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px 8px;font-size:13px;font-weight:600;cursor:pointer}
+  .source-filter{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#222838}
+  .source-filter button{border:0;border-radius:0;padding:8px 12px;min-width:54px;background:transparent;color:var(--muted)}
+  .source-filter button.active{background:var(--accent);color:#fff}
+  .source-badge{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;
+    padding:0 5px;border-radius:5px;font:700 10px var(--mono);color:#fff;margin-right:4px}
+  .source-badge.apple{background:#555b68}.source-badge.google{background:#34a853}
+  .g-marker{width:15px;height:15px;border:2px solid #fff;border-radius:3px;box-shadow:0 1px 5px #0009}
+  .provider-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   #panel{position:fixed;z-index:1000;left:14px;bottom:14px;width:330px;max-width:calc(100vw - 28px);
     max-height:60vh;overflow:auto;background:var(--panel);backdrop-filter:blur(10px);
-    border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 10px 40px #0008}
+    border:1px solid var(--line);border-radius:8px;padding:14px;box-shadow:0 10px 40px #0008}
   #panel h2{margin:0 0 8px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
   .tag{display:flex;align-items:center;gap:9px;padding:9px;border:1px solid var(--line);border-radius:11px;margin-bottom:8px;cursor:pointer}
   .tag:hover{border-color:var(--accent)}
@@ -42,19 +52,29 @@
   .tag .eye{background:transparent;border:0;color:var(--muted);padding:2px 5px;font-size:15px;cursor:pointer;line-height:1;border-radius:8px}
   .tag .eye:hover{background:#2a3040}
   input[type=color]{padding:2px;height:30px;cursor:pointer}
-  input{width:100%;padding:9px 11px;background:#171b25;border:1px solid var(--line);border-radius:10px;color:var(--txt);font-size:13px;margin-top:6px}
+  input{width:100%;padding:9px 11px;background:#171b25;border:1px solid var(--line);border-radius:8px;color:var(--txt);font-size:13px;margin-top:6px}
+  select.field{width:100%;padding:9px 11px;background:#171b25;border:1px solid var(--line);border-radius:8px;color:var(--txt);font-size:13px;margin-top:6px}
+  .map-view-control{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:8px;
+    background:#171b25;border:1px solid var(--line);border-radius:8px}
+  .map-view-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;white-space:nowrap}
+  .map-mode-segment{display:grid;grid-template-columns:1fr 1fr;gap:3px;flex:1;padding:3px;
+    background:#0f121a;border:1px solid #242a37;border-radius:7px}
+  .map-mode-segment button{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;
+    padding:7px 9px;border-radius:5px;background:transparent;color:var(--muted);font-size:11px}
+  .map-mode-segment button.active{background:#2a3347;color:#fff;box-shadow:0 1px 4px #0006}
+  .map-mode-symbol{font-size:12px;color:var(--accent)}
   input.mono{font-family:var(--mono);font-size:12px}
   .chk{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;cursor:pointer}
   .chk input{width:auto;margin:0}
   .muted{color:var(--muted);font-size:12px}
   details summary{cursor:pointer;color:var(--muted);font-size:12px;margin-top:10px}
-  pre{background:#171b25;border:1px solid var(--line);border-radius:10px;padding:10px;overflow:auto;font-size:11px;font-family:var(--mono)}
+  pre{background:#171b25;border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto;font-size:11px;font-family:var(--mono)}
   .toast{position:fixed;z-index:2000;bottom:14px;left:50%;transform:translateX(-50%);background:#222838;border:1px solid var(--line);
     padding:9px 14px;border-radius:999px;font-size:13px;opacity:0;transition:.3s;pointer-events:none}
   .toast.show{opacity:1}
   .modal[hidden]{display:none}
   .modal{position:fixed;inset:0;z-index:3000;background:#0009;display:flex;align-items:center;justify-content:center;padding:16px}
-  .sheet{background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:16px;padding:16px;width:380px;max-width:100%;max-height:80vh;display:flex;flex-direction:column}
+  .sheet{background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:16px;width:380px;max-width:100%;max-height:80vh;display:flex;flex-direction:column}
   .sheet h3{margin:0 0 10px;font-size:15px}
   .mlist{overflow:auto;flex:1;margin-bottom:12px;min-height:40px}
   .mlist label{display:flex;align-items:center;gap:10px;padding:9px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;cursor:pointer;font-size:14px}
@@ -63,7 +83,7 @@
   /* navigatore cronologia */
   #nav[hidden]{display:none}
   #nav{position:fixed;z-index:1500;top:54px;left:50%;transform:translateX(-50%);width:440px;max-width:calc(100vw - 24px);
-    background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 8px 30px #0007}
+    background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:12px;box-shadow:0 8px 30px #0007}
   .nrow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
   .nname{font-weight:700;flex:1;font-size:15px}
   .ncount{flex:1;text-align:center;color:var(--muted);font-size:12px}
@@ -74,14 +94,22 @@
   #n-del{background:transparent;color:var(--bad);border:1px solid var(--bad);width:100%;margin-top:6px;font-size:12px;padding:8px}
   #panel.hide{display:none}
   @media(max-width:600px){
-    header{padding:10px 12px;gap:8px}
-    header h1{font-size:15px}
+    header{padding:max(8px,env(safe-area-inset-top)) 10px 14px;gap:7px}
+    header h1{font-size:14px;white-space:nowrap}
+    header .btns{flex-wrap:wrap;justify-content:flex-end}
+    header .btns>button{padding:9px 10px}
     button{padding:10px 12px}
     button.sm{padding:8px 9px}
-    #panel{left:8px;right:8px;bottom:8px;width:auto;max-height:58vh}
-    #nav{left:8px;right:8px;top:52px;width:auto;max-width:none;transform:none;max-height:calc(100vh - 64px);overflow:auto}
+    #panel{left:0;right:0;bottom:0;width:auto;max-width:none;max-height:62dvh;border-width:1px 0 0;
+      border-radius:12px 12px 0 0;padding:18px 14px calc(14px + env(safe-area-inset-bottom))}
+    #panel::before{content:"";display:block;width:42px;height:4px;border-radius:2px;background:#5f6677;margin:-9px auto 10px}
+    #nav{left:8px;right:8px;top:96px;width:auto;max-width:none;transform:none;
+      max-height:calc(100dvh - 108px);overflow:auto}
     #nav .nrow{flex-wrap:wrap}
     #n-actions button{flex:1}
+    .source-filter{order:3;width:100%;height:38px}
+    .source-filter button{flex:1}
+    .provider-grid{grid-template-columns:1fr}
   }
 </style>
 </head>
@@ -89,8 +117,13 @@
   <div id="map"></div>
   <header>
     <span class="dot" id="dot"></span>
-    <h1>Macless_Haystack</h1>
+    <h1>Find_My_Web</h1>
     <div class="btns">
+      <div class="source-filter" id="source-filter">
+        <button data-source="fusion" class="active">All</button>
+        <button data-source="apple">Apple</button>
+        <button data-source="google">Google</button>
+      </div>
       <select id="lang" title="Language">
         <option value="en">EN</option>
         <option value="it">IT</option>
@@ -113,6 +146,7 @@
       <button class="ghost sm" id="n-new" data-i18n="newer">newer ⟶</button>
     </div>
     <div id="n-info" class="ninfo"></div>
+    <div id="n-source" class="muted"></div>
     <div class="nrow" id="n-actions">
       <button class="ghost sm" id="n-copy-coord" data-i18n="copy_coord">📋 Copy</button>
       <button class="ghost sm" id="n-gmap">🧭 Google</button>
@@ -120,12 +154,25 @@
     </div>
     <input type="range" id="n-slider" min="0" value="0">
     <details class="nopts">
-      <summary data-i18n="pubkey_summary">🔑 Public key (to put in the ESP / nRF)</summary>
-      <pre id="n-carr"></pre>
-      <button class="ghost sm" id="n-copy" style="width:100%" data-i18n="copy_carray">Copy C array</button>
-      <p class="muted" style="margin:10px 0 2px" data-i18n="base64_label">Base64 (standard ASCII · e.g. for macless-haystack)</p>
-      <pre id="n-b64"></pre>
+      <summary data-i18n="pubkey_summary">🔑 Apple P-224 advertisement key (ESP / nRF)</summary>
+      <p class="muted" style="margin:10px 0 2px" data-i18n="base64_label">Apple advertisement key · Base64 string ready for the firmware</p>
+      <input id="n-b64" class="mono" data-i18n-ph="ph_apple_advertisement" placeholder="Apple advertisement key (Base64)">
       <button class="ghost sm" id="n-copy-b64" style="width:100%" data-i18n="copy_base64">Copy Base64</button>
+      <p class="muted" data-i18n="apple_identity_help">To replace it, paste the matching private key. The backend verifies the pair before saving.</p>
+      <input id="n-apple-private" type="password" class="mono" data-i18n-ph="ph_apple_replace" placeholder="Matching Apple private key">
+      <button class="ghost sm" id="n-apple-save" style="width:100%;margin-top:8px" data-i18n="save_apple_identity">Save Apple identity</button>
+    </details>
+    <details class="nopts">
+      <summary data-i18n="providers_summary">🔗 Providers and MQTT</summary>
+      <p class="muted" data-i18n="google_id_help">Google polling uses the registered canonical device ID. The 40-character advertisement EID is stored for firmware setup.</p>
+      <input id="n-google-id" list="google-device-options" data-i18n-ph="ph_google_id" placeholder="Google canonical device ID">
+      <datalist id="google-device-options"></datalist>
+      <input id="n-google-key" class="mono" data-i18n-ph="ph_google_key" placeholder="Google advertisement EID · 40 hex characters">
+      <div class="provider-grid">
+        <label class="chk"><input type="checkbox" id="n-mqtt-apple"> <span data-i18n="mqtt_apple">MQTT Apple</span></label>
+        <label class="chk"><input type="checkbox" id="n-mqtt-google"> <span data-i18n="mqtt_google">MQTT Google</span></label>
+      </div>
+      <button class="ghost sm" id="n-provider-save" style="width:100%;margin-top:8px" data-i18n="save_providers">Save providers</button>
     </details>
     <details class="nopts">
       <summary data-i18n="options">⋯ options</summary>
@@ -140,27 +187,42 @@
 
   <div id="panel">
     <h2 id="status" data-i18n="loading">Loading…</h2>
+    <div class="map-view-control">
+      <span class="map-view-title" data-i18n="map_display">Map points</span>
+      <div class="map-mode-segment" id="map-mode" role="group" aria-label="Map points">
+        <button type="button" data-map-mode="latest">
+          <span class="map-mode-symbol">●</span>
+          <span data-i18n="map_latest">Latest</span>
+        </button>
+        <button type="button" data-map-mode="history" class="active">
+          <span class="map-mode-symbol">⌁</span>
+          <span data-i18n="map_history">History</span>
+        </button>
+      </div>
+    </div>
     <div id="taglist"></div>
 
     <details>
-      <summary data-i18n="add_tag_summary">+ Add a tag</summary>
+      <summary data-i18n="add_tag_summary">+ Add a device</summary>
       <input id="t-name" data-i18n-ph="ph_name" placeholder="Name (e.g. Scooter)">
-      <input id="t-priv" class="mono" data-i18n-ph="ph_privkey" placeholder="Private key (Base64)">
-      <button class="ghost sm" id="t-add" style="margin-top:8px;width:100%" data-i18n="add_tag_btn">Add tag</button>
+      <input id="t-priv" class="mono" data-i18n-ph="ph_privkey_optional" placeholder="Apple private key (Base64, optional)">
+      <input id="t-google-id" list="google-device-options" data-i18n-ph="ph_google_id" placeholder="Google canonical device ID (optional)">
+      <input id="t-google-key" class="mono" data-i18n-ph="ph_google_key" placeholder="Google advertisement EID · 40 hex characters">
+      <button class="ghost sm" id="t-add" style="margin-top:8px;width:100%" data-i18n="add_tag_btn">Add device</button>
     </details>
 
     <details>
-      <summary data-i18n="gen_summary">🔑 Generate a new key (for a new ESP32)</summary>
-      <button class="ghost sm" id="gen" style="margin-top:8px;width:100%" data-i18n="gen_btn">Generate P-224 pair</button>
+      <summary data-i18n="gen_summary">🔑 Generate Apple P-224 keys</summary>
+      <p class="muted" data-i18n="gen_apple_only">Apple only. Google identities are generated externally and imported here.</p>
+      <button class="ghost sm" id="gen" style="margin-top:8px;width:100%" data-i18n="gen_btn">Generate Apple P-224 pair</button>
       <div id="genout" hidden>
-        <p class="muted" style="margin:8px 0 2px" data-i18n="gen_priv_label">Private key (use it in «Add a tag»)</p>
+        <p class="muted" style="margin:8px 0 2px" data-i18n="gen_priv_label">Apple private key (use it in «Add a device»)</p>
         <input id="g-priv" class="mono" readonly>
-        <p class="muted" style="margin:8px 0 2px" data-i18n="gen_carray_label">C array (for key.h ESP32-S3 / nRF52)</p>
-        <pre id="g-carr"></pre>
-        <button class="ghost sm" id="g-copy" style="width:100%" data-i18n="copy_carray">Copy C array</button>
-        <p class="muted" style="margin:8px 0 2px" data-i18n="base64_label_short">Base64 (standard ASCII)</p>
+        <p class="muted" style="margin:8px 0 2px" data-i18n="base64_label_short">Apple advertisement key · Base64 string ready for the firmware</p>
         <pre id="g-b64"></pre>
         <button class="ghost sm" id="g-copy-b64" style="width:100%" data-i18n="copy_base64">Copy Base64</button>
+        <select id="g-target" class="field"></select>
+        <button class="ghost sm" id="g-apply" style="margin-top:8px;width:100%" data-i18n="apply_generated_key">Apply key to existing device</button>
       </div>
     </details>
 
@@ -173,13 +235,31 @@
     </details>
 
     <details>
+      <summary data-i18n="endpoint_summary">🔌 Provider connections</summary>
+      <p class="muted" data-i18n="endpoint_help">Addresses contacted by this engine. The Apple and Google services remain separate containers.</p>
+      <p class="muted" style="margin:9px 0 0" data-i18n="apple_service">Apple macless-haystack service</p>
+      <div class="provider-grid">
+        <input id="s-apple-host" data-i18n-ph="ph_provider_host" placeholder="IP or hostname">
+        <input id="s-apple-port" type="number" min="1" max="65535" data-i18n-ph="ph_provider_port" placeholder="Port">
+      </div>
+      <p class="muted" style="margin:9px 0 0" data-i18n="google_service">Google Find Hub service</p>
+      <div class="provider-grid">
+        <input id="s-google-host" data-i18n-ph="ph_provider_host" placeholder="IP or hostname">
+        <input id="s-google-port" type="number" min="1" max="65535" data-i18n-ph="ph_provider_port" placeholder="Port">
+      </div>
+      <input id="s-google-token" type="password" data-i18n-ph="ph_google_token" placeholder="Google API bearer token">
+      <p class="muted" style="margin-top:8px" data-i18n="google_token_note">Saved server-side and never returned to the browser. Leave blank to keep the stored token.</p>
+      <button class="ghost sm" id="s-provider-save" style="margin-top:8px;width:100%" data-i18n="save_provider_connections">Save provider connections</button>
+    </details>
+
+    <details>
       <summary data-i18n="mqtt_summary">⚙ MQTT / Home Assistant</summary>
       <label class="chk"><input type="checkbox" id="s-en"> <span data-i18n="mqtt_enable_label">Publish to MQTT</span></label>
       <input id="s-host" data-i18n-ph="ph_mqtt_host" placeholder="Broker host (e.g. 192.168.1.10)">
       <input id="s-port" type="number" data-i18n-ph="ph_mqtt_port" placeholder="Port (1883)">
       <input id="s-user" data-i18n-ph="ph_mqtt_user" placeholder="MQTT user (optional)">
       <input id="s-pass" type="password" placeholder="Password (optional)">
-      <input id="s-base" data-i18n-ph="ph_mqtt_base" placeholder="Base topic (Macless_Haystack)">
+      <input id="s-base" data-i18n-ph="ph_mqtt_base" placeholder="Base topic (Find_My_Web)">
       <p class="muted" style="margin:10px 0 2px" data-i18n="refresh_interval_label">Update positions every (minutes)</p>
       <input id="s-refresh" type="number" min="1" placeholder="30">
       <button class="ghost sm" id="s-save" style="margin-top:8px;width:100%" data-i18n="save_settings">Save settings</button>
@@ -207,34 +287,57 @@
     en: {
       refresh:"↻ Refresh", toggle_list:"Show/hide list", rename:"rename", close:"close",
       older:"⟵ older", newer:"newer ⟶", copy_coord:"📋 Copy",
-      pubkey_summary:"🔑 Public key (to put in the ESP / nRF)", copy_carray:"Copy C array",
-      base64_label:"Base64 (standard ASCII · e.g. for macless-haystack)", base64_label_short:"Base64 (standard ASCII)",
-      copy_base64:"Copy Base64", options:"⋯ options", delete_tag:"🗑 Delete this tag",
-      add_tag_summary:"+ Add a tag", ph_name:"Name (e.g. Scooter)", ph_privkey:"Private key (Base64)", add_tag_btn:"Add tag",
-      gen_summary:"🔑 Generate a new key (for a new ESP32)", gen_btn:"Generate P-224 pair",
-      gen_priv_label:"Private key (use it in «Add a tag»)", gen_carray_label:"C array (for key.h ESP32-S3 / nRF52)",
+      pubkey_summary:"🔑 Apple P-224 advertisement key (ESP / nRF)",
+      base64_label:"Apple advertisement key · Base64 string ready for the firmware", base64_label_short:"Apple advertisement key · Base64 string ready for the firmware",
+      ph_apple_advertisement:"Apple advertisement key (Base64)",
+      copy_base64:"Copy Base64", save_apple_identity:"Save Apple identity", apple_identity_saved:"Apple identity updated",
+      apple_identity_missing_private:"Paste the matching Apple private key before changing the advertisement key.",
+      map_display:"Map points", map_latest:"Latest", map_history:"History",
+      options:"⋯ options", delete_tag:"🗑 Delete this tag",
+      add_tag_summary:"+ Add a device", ph_name:"Name (e.g. Scooter)", ph_privkey:"Private key (Base64)",
+      ph_privkey_optional:"Apple private key (Base64, optional)", ph_google_id:"Google canonical device ID (optional)",
+      ph_google_key:"Google advertisement EID · 40 hex characters (optional)", add_tag_btn:"Add device",
+      providers_summary:"🔗 Providers and MQTT",
+      apple_identity_help:"To replace it, paste the matching private key. The backend verifies the pair before saving.",
+      ph_apple_replace:"Matching Apple private key",
+      google_id_help:"Google polling uses the registered canonical device ID. The 40-character advertisement EID is stored for firmware setup.",
+      mqtt_apple:"MQTT Apple", mqtt_google:"MQTT Google", save_providers:"Save providers", providers_saved:"Providers saved",
+      gen_summary:"🔑 Generate Apple P-224 keys", gen_btn:"Generate Apple P-224 pair",
+      gen_apple_only:"Apple only. Google identities are generated externally and imported here.",
+      gen_priv_label:"Apple private key (use it in «Add a device»)",
+      generated_create_prompt:"Create a new device with this Apple key now?",
+      generated_device_name:"Name for the new device:", choose_existing_device:"Choose an existing device",
+      apply_generated_key:"Apply key to existing device", generated_key_applied:"Apple identity updated",
       impexp_summary:"⇅ Import / Export tags (JSON)", export_btn:"⬇ Export tags…", import_btn:"⬆ Import from file…",
       export_note:"The export includes the private keys (backup): keep it safe.",
+      endpoint_summary:"🔌 Provider connections",
+      endpoint_help:"Addresses contacted by this engine. The Apple and Google services remain separate containers.",
+      apple_service:"Apple macless-haystack service", google_service:"Google Find Hub service",
+      ph_provider_host:"IP or hostname", ph_provider_port:"Port",
+      ph_google_token:"Google API bearer token",
+      ph_google_token_saved:"Google API token saved (blank = unchanged)",
+      google_token_note:"Saved server-side and never returned to the browser. Leave blank to keep the stored token.",
+      save_provider_connections:"Save provider connections", provider_connections_saved:"Provider connections saved",
       mqtt_summary:"⚙ MQTT / Home Assistant", mqtt_enable_label:"Publish to MQTT",
       ph_mqtt_host:"Broker host (e.g. 192.168.1.10)", ph_mqtt_port:"Port (1883)", ph_mqtt_user:"MQTT user (optional)",
-      ph_mqtt_base:"Base topic (Macless_Haystack)", refresh_interval_label:"Update positions every (minutes)", save_settings:"Save settings",
+      ph_mqtt_base:"Base topic (Find_My_Web)", refresh_interval_label:"Update positions every (minutes)", save_settings:"Save settings",
       mqtt_note:"Refresh and publishing run on the server, even with the site closed. In Home Assistant the tags show up as device_tracker (MQTT discovery) with name and last position on the map.",
       cancel:"Cancel", loading:"Loading…",
-      status_tags:(n)=>`${n} tags · press Refresh`, status_no_tags:"No tags", backend_unreachable:"Backend unreachable",
+      status_tags:(n)=>`${n} devices · press Refresh`, status_no_tags:"No devices", backend_unreachable:"Backend unreachable",
       refreshing:"Refreshing…", status_reports:(r,p)=>`${r} reports · ${p} positions`, error:"Error",
       no_tags_hint:"No tags. Add one below ⤵", n_points:(n)=>`${n} points`, never_located:"never located",
       key_unavailable:"(key unavailable)", unavailable:"(unavailable)", no_position_yet:"No position yet",
       most_recent_suffix:" · most recent", oldest_suffix:" · oldest",
       confirm_delete:(name)=>`Permanently delete "${name}"?\nThe position history will be lost.`, tag_deleted:"Tag deleted",
       prompt_rename:"New tag name:", name_empty:"Empty name", renamed:"Renamed",
-      key_copied:"Key copied", copy_failed:"Copy failed", base64_copied:"Base64 copied", coords_copied:"Coordinates copied",
-      paste_privkey:"Paste the private key", tag_added:"Tag added", carray_copied:"C array copied",
+      copy_failed:"Copy failed", base64_copied:"Base64 copied", coords_copied:"Coordinates copied",
+      paste_privkey:"Paste the private key", tag_added:"Tag added",
       nothing_to_show:"Nothing to show.", no_tags_export:"No tags to export", export_title:"Export tags",
       download_selected:"⬇ Download selected", n_exported:(n)=>`${n} tags exported`,
       invalid_json:"Invalid JSON", no_valid_tags:"No valid tags in the file", import_title:"Import tags",
       import_selected:"⬆ Import selected", n_imported:(ok,tot)=>`${ok}/${tot} imported`,
       ph_mqtt_pass:"Password (optional)", ph_mqtt_pass_saved:"Password saved (empty = unchanged)",
-      settings_saved:"Settings saved", endpoint_missing:"⚠ ENDPOINT_URL not configured",
+      settings_saved:"Settings saved", endpoint_missing:"⚠ Provider endpoints not configured",
       hide_tooltip:"Hide from map", show_tooltip:"Show on map",
       device_color:"Device color", reset_color:"Reset to default color",
       device_hidden:"Device hidden", device_shown:"Device shown", color_updated:"Color updated",
@@ -243,34 +346,57 @@
     it: {
       refresh:"↻ Aggiorna", toggle_list:"Mostra/nascondi elenco", rename:"rinomina", close:"chiudi",
       older:"⟵ più vecchio", newer:"più recente ⟶", copy_coord:"📋 Copia",
-      pubkey_summary:"🔑 Chiave pubblica (da mettere nell'ESP / nRF)", copy_carray:"Copia array C",
-      base64_label:"Base64 (ASCII standard · es. per macless-haystack)", base64_label_short:"Base64 (ASCII standard)",
-      copy_base64:"Copia Base64", options:"⋯ opzioni", delete_tag:"🗑 Elimina questo tag",
-      add_tag_summary:"+ Aggiungi un tag", ph_name:"Nome (es. Scooter)", ph_privkey:"Private key (Base64)", add_tag_btn:"Aggiungi tag",
-      gen_summary:"🔑 Genera nuova chiave (per un nuovo ESP32)", gen_btn:"Genera coppia P-224",
-      gen_priv_label:"Private key (usala in «Aggiungi un tag»)", gen_carray_label:"Array C (per key.h ESP32-S3 / nRF52)",
+      pubkey_summary:"🔑 Chiave advertisement Apple P-224 (ESP / nRF)",
+      base64_label:"Chiave advertisement Apple · stringa Base64 pronta per il firmware", base64_label_short:"Chiave advertisement Apple · stringa Base64 pronta per il firmware",
+      ph_apple_advertisement:"Chiave advertisement Apple (Base64)",
+      copy_base64:"Copia Base64", save_apple_identity:"Salva identità Apple", apple_identity_saved:"Identità Apple aggiornata",
+      apple_identity_missing_private:"Incolla la private key Apple corrispondente prima di cambiare la chiave advertisement.",
+      map_display:"Punti mappa", map_latest:"Ultime", map_history:"Storico",
+      options:"⋯ opzioni", delete_tag:"🗑 Elimina questo tag",
+      add_tag_summary:"+ Aggiungi un dispositivo", ph_name:"Nome (es. Scooter)", ph_privkey:"Private key (Base64)",
+      ph_privkey_optional:"Chiave privata Apple (Base64, opzionale)", ph_google_id:"ID canonico dispositivo Google (opzionale)",
+      ph_google_key:"EID advertisement Google · 40 caratteri hex (opzionale)", add_tag_btn:"Aggiungi dispositivo",
+      providers_summary:"🔗 Provider e MQTT",
+      apple_identity_help:"Per sostituirla, incolla la private key corrispondente. Il backend verifica la coppia prima di salvarla.",
+      ph_apple_replace:"Private key Apple corrispondente",
+      google_id_help:"Il polling Google usa l'ID canonico registrato. L'EID advertisement da 40 caratteri viene conservato per configurare il firmware.",
+      mqtt_apple:"MQTT Apple", mqtt_google:"MQTT Google", save_providers:"Salva provider", providers_saved:"Provider salvati",
+      gen_summary:"🔑 Genera chiavi Apple P-224", gen_btn:"Genera coppia Apple P-224",
+      gen_apple_only:"Solo Apple. Le identità Google vengono generate esternamente e importate qui.",
+      gen_priv_label:"Chiave privata Apple (usala in «Aggiungi dispositivo»)",
+      generated_create_prompt:"Creare ora un nuovo dispositivo con questa chiave Apple?",
+      generated_device_name:"Nome del nuovo dispositivo:", choose_existing_device:"Scegli un dispositivo esistente",
+      apply_generated_key:"Applica chiave a dispositivo esistente", generated_key_applied:"Identità Apple aggiornata",
       impexp_summary:"⇅ Importa / Esporta tag (JSON)", export_btn:"⬇ Esporta tag…", import_btn:"⬆ Importa da file…",
       export_note:"L'export include le private key (backup): tienilo al sicuro.",
+      endpoint_summary:"🔌 Connessioni provider",
+      endpoint_help:"Indirizzi contattati dal motore. I servizi Apple e Google restano container separati.",
+      apple_service:"Servizio Apple macless-haystack", google_service:"Servizio Google Find Hub",
+      ph_provider_host:"IP o nome host", ph_provider_port:"Porta",
+      ph_google_token:"Bearer token API Google",
+      ph_google_token_saved:"Token API Google salvato (vuoto = invariato)",
+      google_token_note:"Salvato lato server e mai restituito al browser. Lascia vuoto per mantenerlo.",
+      save_provider_connections:"Salva connessioni provider", provider_connections_saved:"Connessioni provider salvate",
       mqtt_summary:"⚙ MQTT / Home Assistant", mqtt_enable_label:"Pubblica su MQTT",
       ph_mqtt_host:"Broker host (es. 192.168.1.10)", ph_mqtt_port:"Porta (1883)", ph_mqtt_user:"Utente MQTT (opzionale)",
-      ph_mqtt_base:"Topic base (Macless_Haystack)", refresh_interval_label:"Aggiorna le posizioni ogni (minuti)", save_settings:"Salva impostazioni",
+      ph_mqtt_base:"Topic base (Find_My_Web)", refresh_interval_label:"Aggiorna le posizioni ogni (minuti)", save_settings:"Salva impostazioni",
       mqtt_note:"Refresh e pubblicazione girano sul server, anche a sito chiuso. In Home Assistant i tag compaiono come device_tracker (MQTT discovery) con nome e ultima posizione sulla mappa.",
       cancel:"Annulla", loading:"Caricamento…",
-      status_tags:(n)=>`${n} tag · premi Aggiorna`, status_no_tags:"Nessun tag", backend_unreachable:"Backend non raggiungibile",
+      status_tags:(n)=>`${n} dispositivi · premi Aggiorna`, status_no_tags:"Nessun dispositivo", backend_unreachable:"Backend non raggiungibile",
       refreshing:"Aggiorno…", status_reports:(r,p)=>`${r} report · ${p} posizioni`, error:"Errore",
       no_tags_hint:"Nessun tag. Aggiungine uno qui sotto ⤵", n_points:(n)=>`${n} punti`, never_located:"mai localizzato",
       key_unavailable:"(chiave non disponibile)", unavailable:"(non disponibile)", no_position_yet:"Nessuna posizione ancora",
       most_recent_suffix:" · più recente", oldest_suffix:" · più vecchio",
       confirm_delete:(name)=>`Eliminare definitivamente "${name}"?\nLo storico delle posizioni andrà perso.`, tag_deleted:"Tag eliminato",
       prompt_rename:"Nuovo nome del tag:", name_empty:"Nome vuoto", renamed:"Rinominato",
-      key_copied:"Chiave copiata", copy_failed:"Copia non riuscita", base64_copied:"Base64 copiato", coords_copied:"Coordinate copiate",
-      paste_privkey:"Incolla la private key", tag_added:"Tag aggiunto", carray_copied:"Array C copiato",
+      copy_failed:"Copia non riuscita", base64_copied:"Base64 copiato", coords_copied:"Coordinate copiate",
+      paste_privkey:"Incolla la private key", tag_added:"Tag aggiunto",
       nothing_to_show:"Niente da mostrare.", no_tags_export:"Nessun tag da esportare", export_title:"Esporta tag",
       download_selected:"⬇ Scarica selezionati", n_exported:(n)=>`${n} tag esportati`,
       invalid_json:"JSON non valido", no_valid_tags:"Nessun tag valido nel file", import_title:"Importa tag",
       import_selected:"⬆ Importa selezionati", n_imported:(ok,tot)=>`${ok}/${tot} importati`,
       ph_mqtt_pass:"Password (opzionale)", ph_mqtt_pass_saved:"Password salvata (vuoto = invariata)",
-      settings_saved:"Impostazioni salvate", endpoint_missing:"⚠ ENDPOINT_URL non configurato",
+      settings_saved:"Impostazioni salvate", endpoint_missing:"⚠ Endpoint provider non configurati",
       hide_tooltip:"Nascondi dalla mappa", show_tooltip:"Mostra sulla mappa",
       device_color:"Colore dispositivo", reset_color:"Ripristina colore predefinito",
       device_hidden:"Dispositivo nascosto", device_shown:"Dispositivo mostrato", color_updated:"Colore aggiornato",
@@ -278,7 +404,10 @@
     }
   };
   let LANG = localStorage.getItem('lang') || 'en';
+  let SOURCE_MODE = localStorage.getItem('sourceMode') || 'fusion';
+  let MAP_MODE = localStorage.getItem('mapMode') || 'history';
   let mqttPassSet = false;
+  let googleTokenSet = false;
   function T(key, ...args){
     const tbl = I18N[LANG] || I18N.en;
     let v = tbl[key]; if(v===undefined) v = I18N.en[key];
@@ -290,6 +419,7 @@
     document.querySelectorAll('[data-i18n-ph]').forEach(el=>{ el.placeholder=T(el.dataset.i18nPh); });
     document.querySelectorAll('[data-i18n-title]').forEach(el=>{ el.title=T(el.dataset.i18nTitle); });
     $('s-pass').placeholder = T(mqttPassSet ? 'ph_mqtt_pass_saved' : 'ph_mqtt_pass');
+    $('s-google-token').placeholder = T(googleTokenSet ? 'ph_google_token_saved' : 'ph_google_token');
     $('lang').value = LANG;
     document.documentElement.lang = LANG;
   }
@@ -317,7 +447,8 @@
   const gmapsDir = (p)=>`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`;
   const amapsDir = (p)=>`https://maps.apple.com/?daddr=${p.lat},${p.lon}&dirflg=d`;
   function mapsPopup(name,p,total){
-    return `<b>${name}</b><br>${new Date(p.ts).toLocaleString()}`
+    const source=p.source||'apple';
+    return `<b>${name}</b> <span class="source-badge ${source}">${source==='google'?'G':'A'}</span><br>${new Date(p.ts).toLocaleString()}`
       + `<br><span style="font-family:var(--mono)">${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}</span> · ±${p.acc} m`
       + (total? `<br>${T('n_points',total)}` : '')
       + `<br>🧭 <a href="${gmapsDir(p)}" target="_blank" rel="noopener" style="color:var(--accent)">Google</a>`
@@ -330,6 +461,7 @@
   let layers = [];
   let TAGS = [], selId = null, idx = 0, curMarker = null, curPt = null, curCircle = null;
   const selTag = ()=>TAGS.find(t=>t.id===selId);
+  const filteredHistory = (t)=> (t.history||[]).filter(p=>SOURCE_MODE==='fusion'||p.source===SOURCE_MODE);
 
   function draw(tags){
     TAGS = tags;
@@ -338,19 +470,36 @@
     tags.forEach((t,i)=>{
       if(t.hidden) return;                       // nascosto: non disegnato sulla mappa
       const c = colorOf(t,i);
-      const pts = (t.history||[]).map(p=>[p.lat,p.lon]);
-      if(pts.length>1){ const pl=L.polyline(pts,{color:c,weight:3,opacity:.5}).addTo(map); layers.push(pl); }
-      (t.history||[]).forEach((p,j)=>{
-        const last = j===t.history.length-1;
-        const m=L.circleMarker([p.lat,p.lon],{radius:last?8:3.5,color:c,weight:last?2:0,fillColor:c,fillOpacity:last?1:.45}).addTo(map);
-        m.bindPopup(mapsPopup(t.name, p, last? t.history.length : 0));
-        layers.push(m);
+      const history=filteredHistory(t);
+      ['apple','google'].forEach(source=>{
+        const completeSourceHistory=history.filter(p=>p.source===source);
+        const sourceHistory=MAP_MODE==='latest' && completeSourceHistory.length
+          ? [completeSourceHistory[completeSourceHistory.length-1]]
+          : completeSourceHistory;
+        const pts=sourceHistory.map(p=>[p.lat,p.lon]);
+        if(MAP_MODE==='history' && pts.length>1){
+          const pl=L.polyline(pts,{color:c,weight:3,opacity:.55,dashArray:source==='google'?'7 6':null}).addTo(map);
+          layers.push(pl);
+        }
+        sourceHistory.forEach((p,j)=>{
+          const last=j===sourceHistory.length-1;
+          let marker;
+          if(source==='google'){
+            const size=last?16:10;
+            marker=L.marker([p.lat,p.lon],{icon:L.divIcon({className:'',iconSize:[size,size],
+              html:`<div class="g-marker" style="width:${size}px;height:${size}px;background:${c};opacity:${last?1:.55}"></div>`})}).addTo(map);
+          }else{
+            marker=L.circleMarker([p.lat,p.lon],{radius:last?8:3.5,color:c,weight:last?2:0,fillColor:c,fillOpacity:last?1:.45}).addTo(map);
+          }
+          marker.bindPopup(mapsPopup(t.name,p,last?completeSourceHistory.length:0));
+          layers.push(marker);
+        });
+        all=all.concat(pts);
       });
-      all=all.concat(pts);
     });
     if(all.length && !selId) map.fitBounds(all,{padding:[60,60],maxZoom:16});
     renderList(tags);
-    if(selId){ const t=selTag(); if(t){ const h=t.history||[]; if(h.length) $('n-slider').max=h.length-1; updateNav(); } else closeNav(); }
+    if(selId){ const t=selTag(); if(t){ const h=filteredHistory(t); if(h.length) $('n-slider').max=h.length-1; updateNav(); } else closeNav(); }
   }
 
   function renderList(tags){
@@ -358,11 +507,11 @@
     box.innerHTML = tags.length? '' : `<p class="muted">${T('no_tags_hint')}</p>`;
     tags.forEach((t,i)=>{
       const c=colorOf(t,i);
-      const h=t.history||[]; const last=h[h.length-1];
+      const h=filteredHistory(t); const last=h[h.length-1];
       const el=document.createElement('div'); el.className='tag'+(t.hidden?' dim':'');
       el.innerHTML=`<span class="swatch" style="background:${c}"></span>
         <div class="grow"><div class="nm">${t.name}</div>
-        <div class="meta">${last? timeAgo(last.ts)+' · '+T('n_points',h.length) : T('never_located')}</div></div>
+        <div class="meta">${last?`<span class="source-badge ${last.source}">${last.source==='google'?'G':'A'}</span>`+timeAgo(last.ts)+' · '+T('n_points',h.length):T('never_located')}</div></div>
         <button class="eye" title="${t.hidden?T('show_tooltip'):T('hide_tooltip')}">${t.hidden?'🙈':'👁'}</button>
         <span class="chev">›</span>`;
       el.querySelector('.eye').onclick=(ev)=>{ ev.stopPropagation(); toggleHidden(t); };
@@ -374,7 +523,7 @@
   // ---- navigatore storico ----
   function selectTag(id){
     selId=id; const t=selTag(); if(!t) return;
-    const h=t.history||[];
+    const h=filteredHistory(t);
     $('n-name').textContent=t.name; $('nav').hidden=false;
     if(h.length){ idx=h.length-1; $('n-slider').max=h.length-1; }
     updateNav();
@@ -382,20 +531,25 @@
   function updateNav(){
     const t=selTag(); if(!t){ closeNav(); return; }
     $('n-name').textContent=t.name;
-    $('n-carr').textContent=t.carray||T('key_unavailable');
-    $('n-b64').textContent=t.advertisement||T('unavailable');
+    $('n-b64').value=t.advertisement||'';
+    $('n-apple-private').value='';
+    $('n-google-id').value=t.google?.id||'';
+    $('n-google-key').value=t.google?.public_key||'';
+    $('n-mqtt-apple').checked=!!t.mqtt?.apple;
+    $('n-mqtt-google').checked=!!t.mqtt?.google;
     const col=colorOf(t, TAGS.indexOf(t));
     $('n-color').value=col;
-    const h=t.history||[]; const has=h.length>0;
+    const h=filteredHistory(t); const has=h.length>0;
     $('n-old').disabled=$('n-new').disabled=$('n-slider').disabled=!has;
     ['n-copy-coord','n-gmap','n-amap'].forEach(id=>$(id).disabled=!has);
     if(curMarker){ map.removeLayer(curMarker); curMarker=null; }
     if(curCircle){ map.removeLayer(curCircle); curCircle=null; }
-    if(!has){ curPt=null; $('n-count').textContent=''; $('n-info').textContent=T('no_position_yet'); return; }
+    if(!has){ curPt=null; $('n-count').textContent=''; $('n-info').textContent=T('no_position_yet'); $('n-source').textContent=''; return; }
     idx=Math.max(0,Math.min(idx,h.length-1)); const p=h[idx]; curPt=p;
     const lbl = idx===h.length-1?T('most_recent_suffix') : idx===0?T('oldest_suffix') : '';
     $('n-count').textContent=`${h.length-idx} / ${h.length}${lbl}`;
     $('n-info').textContent=`${new Date(p.ts).toLocaleString()}  ·  ${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}`;
+    $('n-source').innerHTML=`<span class="source-badge ${p.source}">${p.source==='google'?'G':'A'}</span>${p.source} · received ${new Date(p.received_at||p.ts).toLocaleString()}`;
     $('n-slider').value=idx;
     if(p.acc) curCircle=L.circle([p.lat,p.lon],{radius:p.acc,color:col,weight:1,opacity:.5,fillColor:col,fillOpacity:.08}).addTo(map);
     curMarker=L.circleMarker([p.lat,p.lon],{radius:11,color:'#fff',weight:3,fillColor:col,fillOpacity:1}).addTo(map).bindPopup(mapsPopup(t.name,p,0));
@@ -413,8 +567,11 @@
     closeNav(); toast(T('tag_deleted')); loadTags();
   };
   async function patchTag(id, body){
-    await fetch('api/tags/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const response=await fetch('api/devices/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const result=await response.json();
+    if(result.error){ toast(result.error); return false; }
     loadTags();
+    return true;
   }
   async function toggleHidden(t){
     toast(!t.hidden ? T('device_hidden') : T('device_shown'));
@@ -422,6 +579,29 @@
   }
   $('n-color').onchange=()=>{ const t=selTag(); if(t){ toast(T('color_updated')); patchTag(t.id, {color:$('n-color').value}); } };
   $('n-color-reset').onclick=()=>{ const t=selTag(); if(t){ toast(T('color_updated')); patchTag(t.id, {color:null}); } };
+  $('n-provider-save').onclick=async()=>{
+    const t=selTag(); if(!t) return;
+    const body={
+      googleId:$('n-google-id').value.trim(),
+      googlePublicKey:$('n-google-key').value.trim(),
+      mqttApple:$('n-mqtt-apple').checked,
+      mqttGoogle:$('n-mqtt-google').checked,
+    };
+    if(!await patchTag(t.id,body)) return;
+    toast(T('providers_saved'));
+  };
+  $('n-apple-save').onclick=async()=>{
+    const t=selTag(); if(!t) return;
+    const advertisement=$('n-b64').value.trim();
+    const privateKey=$('n-apple-private').value.trim();
+    if(!privateKey) return toast(T('apple_identity_missing_private'));
+    if(!await patchTag(t.id,{
+      appleAdvertisementKey:advertisement,
+      applePrivateKey:privateKey,
+    })) return;
+    $('n-apple-private').value='';
+    toast(T('apple_identity_saved'));
+  };
   $('n-rename').onclick=async()=>{
     const t=selTag(); if(!t) return;
     const name=prompt(T('prompt_rename'), t.name); if(name===null) return;
@@ -430,14 +610,9 @@
     const j=await r.json(); if(j.error) return toast(j.error);
     toast(T('renamed')); loadTags();
   };
-  $('n-copy').onclick=async()=>{
-    const t=selTag(); if(!t) return;
-    try{ await navigator.clipboard.writeText(t.carray||''); toast(T('key_copied')); }
-    catch(_){ toast(T('copy_failed')); }
-  };
   $('n-copy-b64').onclick=async()=>{
     const t=selTag(); if(!t) return;
-    try{ await navigator.clipboard.writeText(t.advertisement||''); toast(T('base64_copied')); }
+    try{ await navigator.clipboard.writeText($('n-b64').value.trim()); toast(T('base64_copied')); }
     catch(_){ toast(T('copy_failed')); }
   };
   $('n-copy-coord').onclick=async()=>{
@@ -449,7 +624,7 @@
   $('n-amap').onclick=()=>{ if(curPt) window.open(amapsDir(curPt),'_blank','noopener'); };
 
   async function loadTags(){
-    try{ const tags=await (await fetch('api/tags')).json(); draw(tags);
+    try{ const tags=await (await fetch('api/devices')).json(); draw(tags);
       setStatus(tags.length? T('status_tags', tags.length):T('status_no_tags'), '');
     }catch(e){ setStatus(T('backend_unreachable'),'off'); }
   }
@@ -459,27 +634,62 @@
       const r=await fetch('api/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
       const j=await r.json();
       if(j.error){ setStatus('⚠ '+j.error,'off'); return; }
-      draw(j.tags);
-      const tot=j.tags.reduce((n,t)=>n+(t.history?.length||0),0);
-      setStatus(T('status_reports', j.reports, tot), j.reports? 'on':'');
+      draw(j.devices);
+      const tot=j.devices.reduce((n,t)=>n+(t.history?.length||0),0);
+      const reports=Object.values(j.providers||{}).reduce((n,p)=>n+(p.reports||0),0);
+      const errors=Object.entries(j.providers||{}).filter(([,p])=>p.error).map(([source,p])=>`${source}: ${p.error}`);
+      setStatus(errors.length?`${T('error')}: ${errors.join(' · ')}`:T('status_reports',reports,tot),errors.length?'off':(reports?'on':''));
     }catch(e){ setStatus(T('error')+': '+e.message,'off'); }
   }
   $('refresh').onclick=refresh;
 
   $('t-add').onclick=async()=>{
-    const name=$('t-name').value||'tag', pk=$('t-priv').value.trim();
-    if(!pk) return toast(T('paste_privkey'));
-    const r=await fetch('api/tags',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,privateKey:pk})});
+    const body={
+      name:$('t-name').value||'tracker',
+      applePrivateKey:$('t-priv').value.trim(),
+      googleId:$('t-google-id').value.trim(),
+      googlePublicKey:$('t-google-key').value.trim(),
+    };
+    if(!body.applePrivateKey&&!body.googleId&&!body.googlePublicKey) return toast(T('paste_privkey'));
+    const r=await fetch('api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const j=await r.json();
     if(j.error) return toast(j.error);
-    $('t-name').value=''; $('t-priv').value=''; toast(T('tag_added')); loadTags();
+    $('t-name').value=''; $('t-priv').value=''; $('t-google-id').value=''; $('t-google-key').value=''; toast(T('tag_added')); loadTags();
   };
 
   $('gen').onclick=async()=>{
     const j=await (await fetch('api/generate',{method:'POST'})).json();
-    $('g-priv').value=j.private; $('g-carr').textContent=j.carray; $('g-b64').textContent=j.advertisement; $('genout').hidden=false;
+    $('g-priv').value=j.private; $('g-b64').textContent=j.advertisement; $('genout').hidden=false;
+    const target=$('g-target');
+    target.innerHTML=`<option value="">${T('choose_existing_device')}</option>`;
+    TAGS.forEach(device=>{
+      const option=document.createElement('option');
+      option.value=device.id; option.textContent=device.name;
+      target.appendChild(option);
+    });
+    if(confirm(T('generated_create_prompt'))){
+      const name=prompt(T('generated_device_name'),'tracker');
+      if(name!==null && name.trim()){
+        const response=await fetch('api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+          name:name.trim(), applePrivateKey:j.private
+        })});
+        const created=await response.json();
+        if(created.error) toast(created.error); else { toast(T('tag_added')); loadTags(); }
+      }
+    }
   };
-  $('g-copy').onclick=async()=>{ await navigator.clipboard.writeText($('g-carr').textContent); toast(T('carray_copied')); };
+  $('g-apply').onclick=async()=>{
+    const deviceId=$('g-target').value;
+    const privateKey=$('g-priv').value.trim();
+    if(!deviceId||!privateKey) return;
+    const response=await fetch('api/devices/'+deviceId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      applePrivateKey:privateKey,
+      appleAdvertisementKey:$('g-b64').textContent.trim(),
+    })});
+    const result=await response.json();
+    if(result.error) return toast(result.error);
+    toast(T('generated_key_applied')); loadTags();
+  };
   $('g-copy-b64').onclick=async()=>{ await navigator.clipboard.writeText($('g-b64').textContent); toast(T('base64_copied')); };
 
   // ---- import / export ----
@@ -496,12 +706,20 @@
   function download(name, obj){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(obj,null,2)],{type:'application/json'})); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
   function normalizeImport(data){
     const arr = Array.isArray(data) ? data : (data.tags||data.accessories||[data]);
-    return arr.map(o=>{ const pk=o.privateKey||o.private||o.priv||o.key||o.id; return {name:o.name||o.label||'tag', privateKey: typeof pk==='string'? pk.trim():null}; }).filter(o=>o.privateKey);
+    return arr.map(o=>{
+      const pk=o.privateKey||o.private||o.priv||o.key;
+      return {
+        name:o.name||o.label||'tracker',
+        privateKey:typeof pk==='string'?pk.trim():'',
+        googleId:String(o.googleId||o.google_id||'').trim(),
+        googlePublicKey:String(o.googlePublicKey||o.google_public_key||'').trim(),
+      };
+    }).filter(o=>o.privateKey||o.googleId||o.googlePublicKey);
   }
   $('exp').onclick=async()=>{
     const tags=await (await fetch('api/export')).json();
     if(!tags.length) return toast(T('no_tags_export'));
-    showModal(T('export_title'), tags, T('download_selected'), (sel)=>{ if(!sel.length) return; download('Macless_Haystack-tags.json',{type:'macless-haystack-tags',version:1,tags:sel}); toast(T('n_exported', sel.length)); });
+    showModal(T('export_title'), tags, T('download_selected'), (sel)=>{ if(!sel.length) return; download('Find_My_Web-tags.json',{type:'find-my-web-tags',version:1,tags:sel}); toast(T('n_exported', sel.length)); });
   };
   $('imp').onclick=()=>$('impfile').click();
   $('impfile').onchange=async(e)=>{
@@ -524,19 +742,42 @@
       $('s-host').value=s.mqtt_host||'';
       $('s-port').value=s.mqtt_port||1883;
       $('s-user').value=s.mqtt_user||'';
-      $('s-base').value=s.mqtt_base||'Macless_Haystack';
+      $('s-base').value=s.mqtt_base||'Find_My_Web';
       $('s-refresh').value=s.refresh_min||30;
+      $('s-apple-host').value=s.apple_host||'';
+      $('s-apple-port').value=s.apple_port||6176;
+      $('s-google-host').value=s.google_host||'';
+      $('s-google-port').value=s.google_port||5500;
+      googleTokenSet=!!s.google_token_set;
+      $('s-google-token').value='';
       mqttPassSet=!!s.mqtt_pass_set;
       $('s-pass').placeholder=T(mqttPassSet?'ph_mqtt_pass_saved':'ph_mqtt_pass');
+      $('s-google-token').placeholder=T(googleTokenSet?'ph_google_token_saved':'ph_google_token');
     }catch(_){}
   }
+  $('s-provider-save').onclick=async()=>{
+    const body={
+      apple_host:$('s-apple-host').value.trim(),
+      apple_port:+$('s-apple-port').value||6176,
+      google_host:$('s-google-host').value.trim(),
+      google_port:+$('s-google-port').value||5500,
+    };
+    const googleToken=$('s-google-token').value.trim();
+    if(googleToken) body.google_token=googleToken;
+    const r=await fetch('api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json(); if(j.error) return toast(j.error);
+    $('s-google-token').value='';
+    toast(T('provider_connections_saved'));
+    await loadSettings();
+    loadGoogleDevices();
+  };
   $('s-save').onclick=async()=>{
     const body={
       mqtt_enabled:$('s-en').checked,
       mqtt_host:$('s-host').value.trim(),
       mqtt_port:+$('s-port').value||1883,
       mqtt_user:$('s-user').value.trim(),
-      mqtt_base:$('s-base').value.trim()||'Macless_Haystack',
+      mqtt_base:$('s-base').value.trim()||'Find_My_Web',
       refresh_min:+$('s-refresh').value||30,
     };
     const pw=$('s-pass').value; if(pw) body.mqtt_pass=pw;
@@ -544,6 +785,42 @@
     const j=await r.json(); if(j.error) return toast(j.error);
     $('s-pass').value=''; toast(T('settings_saved')); loadSettings();
   };
+
+  async function loadGoogleDevices(){
+    try{
+      const data=await (await fetch('api/google/devices')).json();
+      const list=$('google-device-options'); list.innerHTML='';
+      (data.devices||[]).forEach(device=>{
+        const option=document.createElement('option');
+        option.value=device.id; option.label=device.name||device.id;
+        list.appendChild(option);
+      });
+    }catch(_){}
+  }
+
+  function setSourceMode(source){
+    SOURCE_MODE=['apple','google'].includes(source)?source:'fusion';
+    localStorage.setItem('sourceMode',SOURCE_MODE);
+    document.querySelectorAll('#source-filter button').forEach(button=>{
+      button.classList.toggle('active',button.dataset.source===SOURCE_MODE);
+    });
+    draw(TAGS);
+  }
+  document.querySelectorAll('#source-filter button').forEach(button=>{
+    button.onclick=()=>setSourceMode(button.dataset.source);
+  });
+
+  function setMapMode(mode){
+    MAP_MODE=mode==='latest'?'latest':'history';
+    localStorage.setItem('mapMode',MAP_MODE);
+    document.querySelectorAll('#map-mode button').forEach(button=>{
+      button.classList.toggle('active',button.dataset.mapMode===MAP_MODE);
+    });
+    draw(TAGS);
+  }
+  document.querySelectorAll('#map-mode button').forEach(button=>{
+    button.onclick=()=>setMapMode(button.dataset.mapMode);
+  });
 
   // pannello elenco nomi: mostra/nascondi (su mobile parte nascosto -> mappa libera)
   $('panel-toggle').onclick=()=>$('panel').classList.toggle('hide');
@@ -554,10 +831,15 @@
 
   // boot
   applyI18n();
-  fetch('api/config').then(r=>r.json()).then(c=>{ if(!c.configured) setStatus(T('endpoint_missing'),'off'); }).catch(()=>{});
+  setSourceMode(SOURCE_MODE);
+  setMapMode(MAP_MODE);
+  fetch('api/config').then(r=>r.json()).then(c=>{
+    if(!c.apple?.configured&&!c.google?.configured) setStatus(T('endpoint_missing'),'off');
+  }).catch(()=>{});
   loadSettings();
+  loadGoogleDevices();
   loadTags();
-  // auto-aggiornamento UI ogni 60s (solo in panoramica e con scheda visibile -> non disturba la navigazione)
+  // Refresh the overview every 60 seconds without interrupting history navigation.
   setInterval(()=>{ if(!selId && document.visibilityState==='visible') loadTags(); }, 60000);
 </script>
 </body>

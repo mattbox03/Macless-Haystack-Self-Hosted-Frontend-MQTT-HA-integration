@@ -1,0 +1,28 @@
+name: apple-find-provider
+
+services:
+  anisette:
+    image: dadoum/anisette-v3-server:latest
+    container_name: apple-anisette
+    restart: unless-stopped
+    ports:
+      - "6969:6969"
+    volumes:
+      - anisette-data:/home/Alcoholic/.config/anisette-v3
+
+  macless-haystack:
+    image: christld/macless-haystack:latest
+    container_name: apple-macless-haystack
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    ports:
+      - "6176:6176"
+    volumes:
+      - apple-auth:/app/endpoint/data
+    depends_on:
+      - anisette
+
+volumes:
+  anisette-data:
+  apple-auth:
